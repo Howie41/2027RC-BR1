@@ -18,7 +18,11 @@ public:
     void feed(const std::array<std::uint16_t, 14>& channels) {
         channels_ = channels;
         last_feed_ms_ = rtos::now_ms();
+        ++frames_;
     }
+
+    /// @brief 已成功解析的帧数，供调试器观察。
+    std::uint32_t frames() const { return frames_; }
 
     /// @brief 通道 1000~2000 → -1.0~1.0（死区 + 限幅）。
     float axis(int index) const {
@@ -47,6 +51,7 @@ private:
     std::array<std::uint16_t, 14> channels_{
         1500, 1500, 1500, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
     std::uint32_t last_feed_ms_{0};
+    std::uint32_t frames_{0};
 };
 
 }  // namespace robot
