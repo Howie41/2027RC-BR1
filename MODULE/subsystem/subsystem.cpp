@@ -15,11 +15,11 @@ void Subsystem::requestPrepare() {
 bool Subsystem::requestStandby() {
     taskENTER_CRITICAL();
     const bool accepted = !hasFailed();
-    if (accepted && latest_request_.mode != Mode::Standby && latest_request_.mode != Mode::Prepare) {
+    if (accepted && (isStandby() ||
+                     (latest_request_.mode != Mode::Standby && latest_request_.mode != Mode::Prepare))) {
         latest_request_.reset_preparation = latest_request_.mode == Mode::Disabled;
         ++latest_request_.generation;
         latest_request_.mode = Mode::Standby;
-        onRequestReset();
         state_.store(State::Preparing);
     }
     taskEXIT_CRITICAL();
@@ -51,12 +51,19 @@ bool Subsystem::isRunning() const noexcept { return state() == State::Running; }
 bool Subsystem::hasFailed() const noexcept { return state() == State::Failed; }
 // 判断现在是否接受业务目标。
 bool Subsystem::acceptsCommands() const noexcept {
-    return latest_request_.mode == Mode::Run && isRunning();
+    const auto current_state = state();
+    if (latest_request_.mode == Mode::Disabled || current_state == State::Failed) return false;
+    if (current_state == State::Standby || current_state == State::Running) return true;
+
+    // 仅放行本子系统的待机回调；其他任务和已被新请求替代的回调不能借用授权。
+    return current_state == State::Preparing && standby_callback_task_ != nullptr &&
+           standby_callback_task_ == xTaskGetCurrentTaskHandle() &&
+           latest_request_.generation == active_generation_ &&
+           (latest_request_.mode == Mode::Prepare || latest_request_.mode == Mode::Standby);
 }
-// 默认实现：和正常运行一样，进入待机时保持输出；
-// 比如让调用业务接口让机构回到初始位置，判断动作完成后返回ready，未完成返回Pending
+// 默认无需额外待机步骤，控制输出由 periodic() 统一执行。
 Subsystem::Readiness Subsystem::onStandby(bool) {
-    return onRun(true) ? Readiness::Ready : Readiness::Failed;
+    return Readiness::Ready;
 }
 
 void Subsystem::periodic() {
@@ -107,9 +114,15 @@ void Subsystem::periodic() {
                 phase_ = onRun(true) ? State::Running : State::Failed;
             } else {
                 // 进这说明mode是Prepare或Standby，且已准备好，这里进入待机
+                taskENTER_CRITICAL();
+                standby_callback_task_ = xTaskGetCurrentTaskHandle();
+                taskEXIT_CRITICAL();
                 const auto standby = onStandby(!standby_started_);
+                taskENTER_CRITICAL();
+                standby_callback_task_ = nullptr;
+                taskEXIT_CRITICAL();
                 standby_started_ = true;
-                if (standby == Readiness::Failed) phase_ = State::Failed;
+                if (standby == Readiness::Failed || !onRun(true)) phase_ = State::Failed;
                 else phase_ = standby == Readiness::Ready ? State::Standby : State::Preparing;
             }
         }
