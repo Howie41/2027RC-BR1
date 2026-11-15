@@ -2,7 +2,6 @@
 #include "states.hpp"
 
 void robot::Starting::enter() {
-    robot_context.recovery_mode = Robot_Context::RecoveryMode::Manual;
     phase_ = Phase::Preparing;
     for (auto* subsystem : subsystems) {
         if (subsystem->state() == Subsystem::State::Disabled || subsystem->hasFailed()) {

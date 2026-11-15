@@ -1,10 +1,9 @@
-#include "test_subsystem.hpp"
+#include "subsystem.hpp"
 #include "rtos_utility.hpp"
 
 #include <cassert>
 #include <functional>
 #include <iostream>
-#include <limits>
 
 class ProbeSubsystem final : public Subsystem {
 public:
@@ -192,42 +191,4 @@ int main() {
     probe.periodic();
     assert(probe.hasFailed() && !probe.output);
     std::cout << "PASS: standby pending has no timeout before or after ready, output failures still latch\n";
-
-    C620Motor motor;
-    robot::TestSubsystem subsystem(motor);
-    subsystem.requestPrepare();
-    const auto init_before_online = pid_init_count;
-    subsystem.periodic();
-    assert(subsystem.state() == State::Preparing && pid_init_count == init_before_online);
-    motor.online = true;
-    motor.speed = 3;
-    subsystem.periodic();
-    assert(subsystem.isStandby() && motor.enabled && motor.current == -3);
-    const auto initialized = pid_init_count;
-    assert(!subsystem.setTargetSpeed(10));
-    assert(subsystem.requestRun());
-    subsystem.periodic();
-    assert(subsystem.setTargetSpeed(10));
-    subsystem.periodic();
-    assert(motor.current == 7);
-    assert(!subsystem.setTargetSpeed(std::numeric_limits<float>::infinity()));
-    assert(subsystem.requestStandby());
-    subsystem.periodic();
-    assert(subsystem.isStandby() && motor.current == -3 && pid_init_count == initialized);
-    assert(subsystem.requestRun());
-    subsystem.periodic();
-    subsystem.requestDisable();
-    assert(!subsystem.setTargetSpeed(10));
-    subsystem.periodic();
-    assert(subsystem.state() == State::Disabled && !motor.enabled);
-    subsystem.requestPrepare();
-    subsystem.periodic();
-    assert(subsystem.isStandby() && pid_init_count == initialized + 1);
-    invalid_output = true;
-    subsystem.periodic();
-    invalid_output = false;
-    assert(subsystem.hasFailed() && !motor.enabled);
-    assert(!subsystem.requestStandby());
-    assert(critical_depth == 0);
-    std::cout << "PASS: real test motor zero-speed standby, target revocation and explicit recovery\n";
 }

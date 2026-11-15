@@ -4,7 +4,7 @@
 void robot::Disable::enter() {}
 
 void robot::Disable::update(robot::Control& control) {
-    control.changeTo<TestStarting>();
+    control.changeTo<Enable>();
 }
 
 void robot::Disable::exit() {}
