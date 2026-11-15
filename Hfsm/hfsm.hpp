@@ -113,6 +113,8 @@ struct MachineT {
         explicit Core(Context& context_) : context(context_) {}
         Context& context;   // 全局上下文
         bool active[STATE_COUNT] = {};  // 活跃的状态
+        // 调试器可直接查看；按进入顺序更新，转换完成后为最内层活跃状态名。
+        const char* active_state_name = nullptr;
         Request request;
     };
 
@@ -270,8 +272,13 @@ public:
         // 递归进入，Leaf没有子状态，因而StateId参数没有意义
         void deepEnter(StateId, TransitionType, Core& core) {
             // 隐式根状态没有编号，不需要登记活跃状态，正常使用hfsm也不会调用隐式根状态的deepEnter，兴许可以忽略这里
-            if (StateInfo<TState>::ID != INVALID_STATE)
+            if (StateInfo<TState>::ID != INVALID_STATE) {
                 core.active[StateInfo<TState>::ID] = true;
+                if constexpr (requires { TState::NAME; })
+                    core.active_state_name = TState::NAME;
+                else
+                    core.active_state_name = "<unnamed>";
+            }
             state.enter();
         }
         // 递归退出
@@ -610,6 +617,9 @@ public:
         
         // 查询状态机是否在运行
         bool isRunning() const { return tree_.isRunning(); }
+
+        // 应用代码查询名称；调试器可直接查看 core_.active_state_name 字段。
+        const char* activeStateName() const noexcept { return core_.active_state_name; }
         
         // 获取初始化结果，即有没有成功进入第一个状态
         TransitionResult initialResult() const { return initialResult_; }

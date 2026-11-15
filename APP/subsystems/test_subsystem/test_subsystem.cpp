@@ -45,7 +45,11 @@ void TestSubsystem::onPrepare() {
 }
 
 Subsystem::Readiness TestSubsystem::onStandby(bool entering) {
-    if (entering && !setTargetSpeed(0.0f)) return Readiness::Failed;
+    if (entering && !setTargetSpeed(0.0f)) {
+        // 测试电机拒绝待机所需的零速度目标。
+        RECORD_FAULT(current_fault_, "Test motor rejected standby zero-speed target");
+        return Readiness::Failed;
+    }
     return Readiness::Ready;
 }
 
@@ -71,6 +75,10 @@ bool TestSubsystem::onRun(bool enabled) {
         taskEXIT_CRITICAL();
         current_ma = speed_pid_.calculate(measured_speed_, target_speed_snapshot);
         success = std::isfinite(current_ma);
+        if (!success) {
+            // 测试电机 PID 输出为 NaN 或无穷大。
+            RECORD_FAULT(current_fault_, "Test motor PID output is not finite");
+        }
     }
 
     // 电机命令也由 CAN 通信任务读取；这里只同步命令
@@ -80,6 +88,8 @@ bool TestSubsystem::onRun(bool enabled) {
         if (success) {
             motor_.enable();
         } else {
+            // 测试电机拒绝输出电流命令。
+            RECORD_FAULT(current_fault_, "Test motor rejected output current command");
             motor_.disable();
         }
     } else {

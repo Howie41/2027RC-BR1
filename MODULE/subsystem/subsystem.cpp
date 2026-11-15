@@ -49,6 +49,12 @@ Subsystem::State Subsystem::state() const noexcept { return state_.load(); }
 bool Subsystem::isStandby() const noexcept { return state() == State::Standby; }
 bool Subsystem::isRunning() const noexcept { return state() == State::Running; }
 bool Subsystem::hasFailed() const noexcept { return state() == State::Failed; }
+FaultInfo Subsystem::faultInfo() const noexcept {
+    taskENTER_CRITICAL();
+    const auto info = fault_info_;
+    taskEXIT_CRITICAL();
+    return info;
+}
 // 判断现在是否接受业务目标。
 bool Subsystem::acceptsCommands() const noexcept {
     const auto current_state = state();
@@ -67,6 +73,7 @@ Subsystem::Readiness Subsystem::onStandby(bool) {
 }
 
 void Subsystem::periodic() {
+    current_fault_ = {};
     // 请求的快照
     Request request;
     taskENTER_CRITICAL();
@@ -79,17 +86,21 @@ void Subsystem::periodic() {
         if (request.reset_preparation) {
             prepared_ = false;
             (void)onRun(false);
+            current_fault_ = {}; // 关闭输出不报告新的生命周期失败。
         }
         phase_ = request.mode == Mode::Disabled ? State::Disabled : State::Preparing;
     }
 
+    const bool was_failed = phase_ == State::Failed;
     if (request.mode == Mode::Disabled || phase_ == State::Failed) {
         (void)onRun(false);
     } 
     else if (!isOnline()) {
         (void)onRun(false);
+        current_fault_ = {};
         if (request.mode == Mode::Run || prepared_) {
             // 已建立运行条件后，进入/保持待机时掉线同样需要显式恢复。
+            RECORD_FAULT(current_fault_, "Subsystem went offline after preparation");
             phase_ = State::Failed;
         } else {
             // 尚未建立运行条件时允许等待上线。
@@ -105,13 +116,22 @@ void Subsystem::periodic() {
         }
 
         const auto readiness = onCheckReadiness();
-        if (readiness == Readiness::Failed ||
-            (prepared_ && readiness != Readiness::Ready)) {
+        if (readiness == Readiness::Failed) {
+            // 子系统运行条件检查失败。
+            RECORD_FAULT(current_fault_, "Subsystem readiness check failed");
+            phase_ = State::Failed;
+        } else if (prepared_ && readiness != Readiness::Ready) {
+            // 子系统此前已就绪，但已建立的运行条件失效。
+            RECORD_FAULT(current_fault_, "Subsystem lost established readiness");
             phase_ = State::Failed;
         } else if (readiness == Readiness::Ready) {
             prepared_ = true;
             if (request.mode == Mode::Run) {
                 phase_ = onRun(true) ? State::Running : State::Failed;
+                if (phase_ == State::Failed) {
+                    // 子系统在业务运行期间控制输出失败。
+                    RECORD_FAULT(current_fault_, "Subsystem control failed while running");
+                }
             } else {
                 // 进这说明mode是Prepare或Standby，且已准备好，这里进入待机
                 taskENTER_CRITICAL();
@@ -122,8 +142,17 @@ void Subsystem::periodic() {
                 standby_callback_task_ = nullptr;
                 taskEXIT_CRITICAL();
                 standby_started_ = true;
-                if (standby == Readiness::Failed || !onRun(true)) phase_ = State::Failed;
-                else phase_ = standby == Readiness::Ready ? State::Standby : State::Preparing;
+                if (standby == Readiness::Failed) {
+                    // 子系统进入或保持待机的回调报告失败。
+                    RECORD_FAULT(current_fault_, "Subsystem standby callback failed");
+                    phase_ = State::Failed;
+                } else if (!onRun(true)) {
+                    // 子系统在进入或保持待机期间控制输出失败。
+                    RECORD_FAULT(current_fault_, "Subsystem control failed while entering or holding standby");
+                    phase_ = State::Failed;
+                } else {
+                    phase_ = standby == Readiness::Ready ? State::Standby : State::Preparing;
+                }
             }
         }
 
@@ -133,6 +162,9 @@ void Subsystem::periodic() {
     // 计算期间的新请求在后续周期执行；本轮可能产生一次旧输出，但不能覆盖新状态。
     taskENTER_CRITICAL();
     if (latest_request_.generation == request.generation && latest_request_.mode == request.mode) {
+        if (!was_failed && phase_ == State::Failed && current_fault_.reason != nullptr) {
+            fault_info_ = current_fault_;
+        }
         state_.store(phase_);
     }
     taskEXIT_CRITICAL();

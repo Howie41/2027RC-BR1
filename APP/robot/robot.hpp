@@ -89,7 +89,10 @@ struct Robot_Context {
     // 进入 Fault 前记录请求拒绝等不会直接改变子系统状态的故障。
     Subsystem* pending_fault_source{nullptr};
     FaultReason pending_fault_reason{FaultReason::None};
+    FaultInfo pending_fault_details{};
     std::array<FaultReason, subsystems.size()> faults{};
+    // 与 faults / subsystems 下标对应；进入 Fault 时复制具体原因、文件名及行号。
+    std::array<FaultInfo, subsystems.size()> fault_details{};
     // 预留给操作员/上位机恢复命令。唯一可由其他任务直接修改的上下文字段。
     // 每次进入 Fault 清零；显式置 true 后才允许离开 Fault，离开时消费。
     std::atomic<bool> recovery_requested{false};
