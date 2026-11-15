@@ -12,6 +12,7 @@ void robot::UniversalManual::entryGuard(robot::GuardControl& control) {
 
 void robot::UniversalManual::enter() {
     robot_context.faults.fill(Robot_Context::FaultReason::None);
+    robot_context.fault_details.fill(FaultInfo{});
 }
 
 void robot::UniversalManual::update(robot::Control& control) {

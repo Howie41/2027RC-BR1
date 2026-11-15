@@ -13,6 +13,7 @@ void robot::TestRunning::entryGuard(robot::GuardControl& control) {
 
 void robot::TestRunning::enter() {
     robot_context.faults.fill(Robot_Context::FaultReason::None);
+    robot_context.fault_details.fill(FaultInfo{});
     
     // EB: 这里初始化测试业务需要用的量 begin
     speed_sequence_active_ = false;

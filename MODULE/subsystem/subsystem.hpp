@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fault_info.hpp"
+
 #include <atomic>
 #include <cstdint>
 
@@ -32,11 +34,17 @@ public:
     [[nodiscard]] bool isStandby() const noexcept;
     [[nodiscard]] bool isRunning() const noexcept;
     [[nodiscard]] bool hasFailed() const noexcept;
+    // 最近一次已发布失败的现场快照；禁用、重新准备不会清除，由下一次失败更新。
+    [[nodiscard]] FaultInfo faultInfo() const noexcept;
     void periodic();
 
 protected:
     enum class Readiness : std::uint8_t { Pending, Ready, Failed };
     Subsystem() noexcept = default;
+
+    // 仅在 periodic() 所调用的控制任务回调中记录，本周期开始时清空。
+    // 回调记录后仍须返回 false / Readiness::Failed，由基类发布 Failed 和现场。
+    FaultInfo current_fault_{};
 
     // 子系统内部的设备事实；整机不检查在线，派生类须同步读取反馈。
     [[nodiscard]] virtual bool isOnline() const = 0;
@@ -68,6 +76,7 @@ private:
 
     Request latest_request_{}; // 请求方和控制任务通过短临界区同步。
     std::atomic<State> state_{State::Disabled};
+    FaultInfo fault_info_{}; // 发布和读取均受短临界区保护。
     // onStandby 回调所属任务的不透明句柄；读写均受短临界区保护。
     void* standby_callback_task_{nullptr};
 

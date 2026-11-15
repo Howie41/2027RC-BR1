@@ -35,6 +35,23 @@
 
 *`Readiness`有3个值：`Pending`（进行中）,`Ready`（完成）,`Failed`（失败）*
 
+## 故障现场记录
+
+回调可以在返回失败前用宏记录具体原因，自动保存文件名和行号：
+
+```cpp
+if (!std::isfinite(current)) {
+    RECORD_FAULT(current_fault_, "Motor PID output is not finite");
+    return false; // onCheckReadiness / onStandby 中应返回 Readiness::Failed
+}
+```
+
+`RECORD_FAULT(destination, "原因")` 只记录，不切换状态、不进入 Error_Handler，也不关闭中断。原因必须是字符串字面量或具有静态生命周期的字符串，不保存临时字符串的 c_str()。宏不受 ENABLE_RUNTIME_ASSERT 开关影响。
+
+`current_fault_` 仅用于 periodic() 调用的控制任务回调，不用于业务接口、onRequestReset 或其他任务。每个控制周期清空一次；同一周期优先保留第一条原因，基类仅在没有具体原因时补上离线、准备失败、运行失败或待机失败的说明。回调仍须按原约定返回失败并完成必要的输出处理，单独记录不会使子系统失败。
+
+基类仅在本轮请求仍有效且发布 Failed 时提交现场，可通过 `faultInfo()` 获取受临界区保护的快照。已发布的现场在禁用和重新准备后继续保留，下一次有效失败会更新；旧请求被新请求替代时，其计算结果和现场都不会发布。整机进入 Fault 后，把现场复制到 `robot::robot_context.fault_details[i]`，其中 i 与 subsystems / faults 的下标对应。
+
 ## 回调的调用时序和子系统的状态切换
 
 1. 程序启动，子系统处于Disabled状态。完成系统初始化后，`onRun(bool enable)`就开始被循环调用，此时的enable为false，
