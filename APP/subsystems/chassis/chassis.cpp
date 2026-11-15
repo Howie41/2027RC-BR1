@@ -11,6 +11,7 @@ namespace robot {
 namespace {
 constexpr float kMaxSpeedRadS = 10.4719f;  // 600 deg/s
 constexpr float kMaxOmegaRadS = 4.3633f;   // 250 deg/s
+constexpr float kDegPerRad = 57.29578f;    // 180/pi，旧框架 deg/s 增益换算到 rad/s
 }  // namespace
 
 Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
@@ -21,8 +22,8 @@ Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
       rr_pid_("chassis_rr_speed"),
       pids_{&fr_pid_, &fl_pid_, &rl_pid_, &rr_pid_} {
     const PidController::Config config{
-        .kp = 20.0f,
-        .ki = 2.0f,
+        .kp = 20.0f * kDegPerRad,   // 旧 20 mA/(deg/s)，换算到 rad/s
+        .ki = 2.0f * kDegPerRad,    // 旧 2 mA/(deg/s)，换算到 rad/s
         .kd = 0.0f,
         .max_out = 20000.0f,
         .integral_limit = 5000.0f,
