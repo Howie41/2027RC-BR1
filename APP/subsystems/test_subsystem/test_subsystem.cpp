@@ -28,12 +28,12 @@ bool TestSubsystem::setTargetSpeed(float speed) {
 
     // 为子系统业务功能要用到的数据添加临界区保护
     taskENTER_CRITICAL();
-    const bool running = acceptsCommands();
-    if (running) {
+    const bool accepted = acceptsCommands();
+    if (accepted) {
         target_speed_ = speed;
     }
     taskEXIT_CRITICAL();
-    return running;
+    return accepted;
 }
 
 void TestSubsystem::onRequestReset() noexcept {
@@ -44,8 +44,9 @@ void TestSubsystem::onPrepare() {
     speed_pid_.init();
 }
 
-Subsystem::Readiness TestSubsystem::onStandby(bool) {
-    return onRun(true) ? Readiness::Ready : Readiness::Failed;
+Subsystem::Readiness TestSubsystem::onStandby(bool entering) {
+    if (entering && !setTargetSpeed(0.0f)) return Readiness::Failed;
+    return Readiness::Ready;
 }
 
 Subsystem::Readiness TestSubsystem::onCheckReadiness() {
