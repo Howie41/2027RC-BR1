@@ -41,6 +41,9 @@ public:
     std::uint16_t switch_c() const { return channels_[6]; }
     std::uint16_t switch_d() const { return channels_[7]; }
 
+    /// @brief 通用通道值（0 基下标）。
+    std::uint16_t channel(int index) const { return channels_[index]; }
+
     /// @brief 最近 kTimeoutMs 内收到过帧则在线。
     bool online() const {
         return static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
