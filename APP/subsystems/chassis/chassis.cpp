@@ -9,9 +9,22 @@
 namespace robot {
 
 namespace {
-constexpr float kMaxSpeedRadS = 10.4719f;  // 600 deg/s
-constexpr float kMaxOmegaRadS = 4.3633f;   // 250 deg/s
-constexpr float kDegPerRad = 57.29578f;    // 180/pi，旧框架 deg/s 增益换算到 rad/s
+// 底盘几何尺寸（米）
+constexpr float kWheelRadius = 0.06475f;   // 轮子半径
+constexpr float kHalfLength = 0.273125f;   // 半长（前-后，546.25/2）
+constexpr float kHalfWidth = 0.223065f;    // 半宽（左-右，446.13/2）
+
+// 最大运动速度
+constexpr float kMaxLinearSpeed = 2.0f;     // m/s（vy=1 时底盘线速度）
+constexpr float kMaxAngularSpeed = 1.5708f; // rad/s（90°/s，右摇杆右端）
+
+// 归一化速度 → 车轮转速 (rad/s) 的换算系数
+constexpr float kLinearToWheel = kMaxLinearSpeed / kWheelRadius;
+constexpr float kRotationToWheel =
+    kMaxAngularSpeed * (kHalfLength + kHalfWidth) / kWheelRadius;
+
+// 旧框架 PID 增益按 deg/s 标定，换算到 rad/s
+constexpr float kDegPerRad = 57.29578f;
 }  // namespace
 
 Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
@@ -94,9 +107,9 @@ bool Chassis::onRun(bool enabled) {
         taskEXIT_CRITICAL();
 
         // 世界坐标系：vx 向右(+x)、vy 向前(+y)、omega 逆时针(+)；X 布局 FR/FL/RL/RR。
-        const float v = vx * kMaxSpeedRadS;
-        const float s = vy * kMaxSpeedRadS;
-        const float w = omega * kMaxOmegaRadS;
+        const float v = vx * kLinearToWheel;    // 右 (rad/s)
+        const float s = vy * kLinearToWheel;    // 前 (rad/s)
+        const float w = omega * kRotationToWheel;  // 旋转 (rad/s)
         const float target[4] = {
              v - s - w,
              v + s - w,
