@@ -93,9 +93,9 @@ bool Chassis::onRun(bool enabled) {
         }
         taskEXIT_CRITICAL();
 
-        // 全向轮 X 布局解算，FR/FL/RL/RR，旋转四轮同号。
-        const float v = -vx * kMaxSpeedRadS;
-        const float s = vy * kMaxSpeedRadS;
+        // 全向轮 X 布局解算，FR/FL/RL/RR，旋转四轮同号；平移方向与旧板相差 180°，取反。
+        const float v = vx * kMaxSpeedRadS;
+        const float s = -vy * kMaxSpeedRadS;
         const float w = -omega * kMaxOmegaRadS;
         const float target[4] = {
              v - s - w,
