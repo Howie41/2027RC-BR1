@@ -5,7 +5,7 @@
 #include <array>
 #include <cstdint>
 
-// IMU 接收任务：从 UART8 收取字节，解析后在角度帧到达时更新里程计。
+// IMU 接收任务：从 UART8 收取字节，解析后在角度帧到达时做惯性预测。
 rtos::Task<"imu_rx", [] {
     RUNTIME_ASSERT(robot::uart8_port.start_receive_to_idle_dma() == HAL_OK);
 
@@ -15,7 +15,7 @@ rtos::Task<"imu_rx", [] {
         const auto length = robot::uart8_port.block_for_received_chunk(buffer);
         for (std::size_t i = 0; i < length; ++i) {
             if (parser.parse(buffer[i], robot::imu_data) == imu::FrameType::Angle) {
-                robot::odometry.update(robot::imu_data, rtos::now_ms());
+                robot::world_frame.predict(robot::imu_data, rtos::now_ms());
             }
         }
     }

@@ -65,7 +65,7 @@ inline Remote remote{};
 // IMU（HWT901B，UART8，9600 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart8_port{huart8, {}};
 inline imu::Data imu_data{};
-inline Odometry odometry{};
+inline odometry::Estimator world_frame{};
 
 DMA_BUFFER_BSS inline UartPortDma<32, 32, 32 * 2> uart2_port{huart2, {}};
 inline Rs485Bus rs4851_bus{uart2_port};
