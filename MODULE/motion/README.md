@@ -1,20 +1,25 @@
 # motion
 
-梯形速度曲线规划器（一维运动，状态机实现）。
+七段式 S 曲线速度规划器（一维运动，状态机实现）。
 
 ```cpp
-#include "trapezoid_profile.hpp"
+#include "scurve_profile.hpp"
 
-motion::TrapezoidProfile profile;
+motion::SCurveProfile profile;
 
-// 开始规划：从当前位置前进 0.5 m，最大速度 1 m/s，加速度/减速度 2 m/s²。
-profile.plan(0.5f, {.max_velocity = 1.0f, .max_acceleration = 2.0f, .max_deceleration = 2.0f});
+// 开始规划：前进 0.5 m，最大速度 1 m/s，加速度 2 m/s²，减速度 2 m/s²，加加速度 5 m/s³。
+profile.plan(0.5f, {
+    .max_velocity = 1.0f,
+    .max_acceleration = 2.0f,
+    .max_deceleration = 2.0f,
+    .max_jerk = 5.0f,
+});
 
-// 每个控制周期推进，返回当前速度。
-float velocity = profile.update(dt);
-if (profile.done()) {
-    // 已到达目标，速度为零。
+while (!profile.done()) {
+    float velocity = profile.update(dt);  // 当前速度
 }
 ```
 
-阶段：`Idle → Accel → Cruise → Decel → Done`。加速到最大速度后匀速，剩余距离不足减速时自动进入减速，到目标位移时速度恰好为零（位移小则退化为三角形，无匀速段）。
+阶段：`Idle → 加加速 → 匀加速 → 减加速 → 匀速 → 加减速 → 匀减速 → 减减速 → Done`。
+
+用加加速度 J 限制加速度变化率，到目标时速度与加速度都为零，运动平滑无冲击。位移小则退化为部分段（无匀速段或无匀加速段）。
