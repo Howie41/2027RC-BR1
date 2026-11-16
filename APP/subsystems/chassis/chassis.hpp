@@ -18,6 +18,9 @@ public:
     /// @return 仅在 Running 且目标有限时接受并返回 true。
     [[nodiscard]] bool setVelocity(float vx, float vy, float omega);
 
+    /// @brief 强制掉线（测试用）：置位后视为电机离线，用于演练 Fault 流程。
+    void set_force_offline(bool offline) { force_offline_ = offline; }
+
 private:
     [[nodiscard]] bool isOnline() const override;
     void onRequestReset() noexcept override;
@@ -39,6 +42,7 @@ private:
     float vy_{0.0f};
     float omega_{0.0f};
     float measured_speed_[4]{};
+    bool force_offline_{false};
 };
 
 }  // namespace robot

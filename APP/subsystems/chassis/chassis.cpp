@@ -46,6 +46,7 @@ Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
 }
 
 bool Chassis::all_online() const {
+    if (force_offline_) return false;
     taskENTER_CRITICAL();
     bool online = true;
     for (const auto* motor : motors_) online &= motor->is_online();

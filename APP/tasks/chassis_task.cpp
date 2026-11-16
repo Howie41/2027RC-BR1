@@ -20,6 +20,9 @@ rtos::Task<"chassis", [] {
                 robot::robot_context.recovery_requested.store(true);
             }
             recovery_pressed = recovery_now;
+
+            // 通道 10（CH10，0 基下标 9）拨到 2000 = 强制掉线（按住生效）。
+            robot::chassis.set_force_offline(robot::remote.channel(9) == 2000);
         }
         (void)robot::chassis.setVelocity(vx, vy, omega);
         robot::chassis.periodic();
