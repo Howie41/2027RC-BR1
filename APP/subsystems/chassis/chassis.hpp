@@ -14,7 +14,7 @@ public:
     /// @brief fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
     Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
 
-    /// @brief 设置归一化运动目标：vx 前进 / vy 左移 / omega 逆时针，各 -1.0~1.0。
+    /// @brief 设置归一化运动目标：vx 向右(+x) / vy 向前(+y) / omega 逆时针，各 -1.0~1.0。
     /// @return 仅在 Running 且目标有限时接受并返回 true。
     [[nodiscard]] bool setVelocity(float vx, float vy, float omega);
 
