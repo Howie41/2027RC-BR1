@@ -28,9 +28,13 @@ public:
     /// @brief 用 IMU 原始数据做惯性预测（当前为纯积分，后续替换为卡尔曼预测）。
     void predict(const imu::Data& imu, std::uint32_t now_ms);
 
+    /// @brief 复位坐标系：以当前位置为原点、当前航向为 0。
+    void reset();
+
 private:
     std::uint32_t last_update_ms_{0};
     float last_omega_{0.0f};
+    float yaw_bias_{0.0f};  // 航向偏置：世界 yaw = imu.yaw - yaw_bias_
     bool first_{true};
 };
 
@@ -40,8 +44,8 @@ inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
     first_ = false;
     last_update_ms_ = now_ms;
 
-    // 航向与角速度直接来自 IMU 原始数据。
-    state.yaw = imu.yaw;
+    // 航向与角速度来自 IMU 原始数据（世界 yaw 减去偏置）。
+    state.yaw = imu.yaw - yaw_bias_;
     state.omega = imu.wz;
 
     // 角加速度 = 角速度差分。
@@ -61,6 +65,14 @@ inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
         state.x += state.vx * dt;
         state.y += state.vy * dt;
     }
+}
+
+inline void Estimator::reset() {
+    // 当前 IMU yaw = 世界 yaw + 偏置；把它作为新偏置，使世界 yaw 归零。
+    yaw_bias_ = state.yaw + yaw_bias_;
+    state = {};
+    last_omega_ = 0.0f;
+    first_ = true;
 }
 
 }  // namespace odometry

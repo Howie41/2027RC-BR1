@@ -18,11 +18,17 @@ public:
     /// @brief 目标航向 (rad)。
     float target_yaw() const { return target_yaw_; }
 
+    /// @brief 复位跟踪器：目标航向清零，下次更新重新锁定当前航向。
+    void reset() {
+        target_yaw_ = 0.0f;
+        first_ = true;
+    }
+
 private:
     static constexpr float kPi = 3.14159265f;
     static constexpr float kDeadband = 0.01f;  // 旋转指令死区
-    static constexpr float kYawKp = 3.0f;      // 航向比例增益
-    static constexpr float kYawKd = 0.5f;      // 航向阻尼（角速度做 D 项）
+    static constexpr float kYawKp = 0.9f;      // 航向比例增益
+    static constexpr float kYawKd = 0.1f;      // 航向阻尼（角速度做 D 项）
 
     float target_yaw_{0.0f};
     bool first_{true};
