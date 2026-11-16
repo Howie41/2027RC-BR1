@@ -11,7 +11,7 @@ public:
     /// @brief 更新跟踪器并输出修正后的归一化角速度。
     /// @param omega_cmd 遥控的归一化旋转指令 (-1..1)。
     /// @param yaw 当前航向 (rad)，来自世界坐标系。
-    /// @param omega 当前角速度 (rad/s)，来自世界坐标系。
+    /// @param omega 当前角速度 (rad/s)，当前未使用。
     /// @param dt 时间步长 (s)，当前未使用，预留给位置跟踪。
     float update(float omega_cmd, float yaw, float omega, float dt);
 
@@ -21,8 +21,7 @@ public:
 private:
     static constexpr float kPi = 3.14159265f;
     static constexpr float kDeadband = 0.01f;  // 旋转指令死区
-    static constexpr float kYawKp = 3.0f;      // 航向比例增益
-    static constexpr float kYawKd = 0.5f;      // 航向阻尼（角速度做 D 项）
+    static constexpr float kDecel = 2.0f;      // 回正减速度（越大停得越快）
 
     float target_yaw_{0.0f};
     bool first_{true};
@@ -30,6 +29,7 @@ private:
 
 inline float PointTracker::update(float omega_cmd, float yaw, float omega, float dt) {
     (void)dt;
+    (void)omega;
     if (first_) {
         first_ = false;
         target_yaw_ = yaw;
@@ -41,12 +41,15 @@ inline float PointTracker::update(float omega_cmd, float yaw, float omega, float
         return omega_cmd;
     }
 
-    // 无旋转指令：维持目标航向，抵抗外部扰动（被踢后自动回正）。
+    // 无旋转指令：梯形速度曲线回正——误差大时全速，接近目标按 sqrt(2·a·|err|) 自动减速，
+    // 到目标时速度恰为 0，避免超调；只依赖航向误差，不引入陀螺仪噪声。
     float err = target_yaw_ - yaw;
     while (err > kPi) err -= 2.0f * kPi;
     while (err < -kPi) err += 2.0f * kPi;
 
-    return std::clamp(kYawKp * err - kYawKd * omega, -1.0f, 1.0f);
+    float out = std::sqrt(2.0f * kDecel * std::abs(err));
+    out = std::copysign(out, err);
+    return std::clamp(out, -1.0f, 1.0f);
 }
 
 }  // namespace tracking
