@@ -41,6 +41,10 @@ private:
 inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
     const float dt =
         first_ ? 0.0f : static_cast<float>(now_ms - last_update_ms_) / 1000.0f;
+    if (first_) {
+        // 首次预测：以当前 IMU yaw 为基准，使世界 yaw 从 0 开始（IMU 可能掉电前就在跑）。
+        yaw_bias_ = imu.yaw;
+    }
     first_ = false;
     last_update_ms_ = now_ms;
 
@@ -68,11 +72,9 @@ inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
 }
 
 inline void Estimator::reset() {
-    // 当前 IMU yaw = 世界 yaw + 偏置；把它作为新偏置，使世界 yaw 归零。
-    yaw_bias_ = state.yaw + yaw_bias_;
     state = {};
     last_omega_ = 0.0f;
-    first_ = true;
+    first_ = true;  // 下次 predict 会重新以当前 IMU yaw 为基准
 }
 
 }  // namespace odometry
