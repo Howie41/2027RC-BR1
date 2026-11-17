@@ -1,6 +1,6 @@
 # TestSubsystem
 
-TestSubsystem 只管理 robot::test_motor，以 PID test_motor_speed 执行速度闭环，继续支持 debug_task 调参。继承 Subsystem 的五状态生命周期，整机通过基类请求和状态查询协调，不直接操作电机。
+TestSubsystem 是 C620 电机速度闭环的接入示例，当前未创建实例或周期任务，也未注册到整车。实例化时通过构造函数传入电机，以 PID test_motor_speed 执行速度闭环，支持 debug_task 调参。继承 Subsystem 的五状态生命周期，整机通过基类请求和状态查询协调，不直接操作电机。
 
 | 状态 | 电机行为 |
 | --- | --- |
@@ -16,6 +16,6 @@ setTargetSpeed 在短临界区内通过 acceptsCommands 检查授权，允许 St
 
 即使已经处于Standby，再次显式请求待机也会由onStandby(true)重新设置零速度目标，不会保留待机期间接收的业务速度；正在进入待机时的重复请求不重置进度，也不重新初始化PID。
 
-启动时先在线的机构独立准备到 Standby，其他机构继续等待；正式或测试启动状态等对应集合全部 Standby 后提交运行请求，再等待实际 Running。TestRunning 执行每三秒 10 → 0 → -10 → 0 rad/s 的速度测试，退出只结束序列，目的状态负责接管目标。
+接入后，先在线的机构独立准备到 Standby，其他机构继续等待；正式或测试启动状态等对应集合全部 Standby 后提交运行请求，再等待实际 Running。TestRunning 当前不包含具体测试业务。
 
 发生故障时，Fault 保存来源并禁用故障对象，健康对象转入待机。显式置位 robot_context.recovery_requested 后才能进入 Recovering；修复对象重新准备到待机，再请求目标集合运行。健康对象无需重复初始化，恢复失败则回到 Fault 等待新的授权。测试集合外尚未建立运行条件的机构可以等待上线，不阻塞测试恢复；已经因待机掉线而失败、并被整机记录的机构，需要一并修复。

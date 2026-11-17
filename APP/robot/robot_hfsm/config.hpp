@@ -6,11 +6,12 @@ namespace robot {
 struct Robot_Context;
 
 struct Disable;
-struct Starting;
+struct ManualStarting;
 struct Enable;
 struct Manual;
 struct UniversalManual;
 struct Auto;
+struct AutoStarting;
 struct WaitUpperComputer;
 struct DevelopingAuto;
 struct Paused;
@@ -19,8 +20,8 @@ struct TestStarting;
 struct TestRunning;
 struct Fault;
 struct Recovering;
-using StateList = hfsm::TypeList<Disable, Starting,
-                    Enable, Manual, UniversalManual, Auto, WaitUpperComputer,
+using StateList = hfsm::TypeList<Disable, ManualStarting,
+                    Enable, Manual, UniversalManual, Auto, AutoStarting, WaitUpperComputer,
                     DevelopingAuto, Paused, Test, TestStarting, TestRunning, Fault, Recovering>;
 using M = hfsm::MachineT<Robot_Context, StateList>;
 using Control = M::Control;

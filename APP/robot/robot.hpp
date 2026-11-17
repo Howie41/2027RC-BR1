@@ -7,14 +7,10 @@
 #include "rtos_utility.hpp"
 #include "hfsm.hpp"
 #include "robot_hfsm/states.hpp"
-#include "usart.h"
 #include "can_bus.hpp"
 #include "bsp_dwt.hpp"
-#include "rs485_bus.hpp"
 #include "rtos_task.hpp"
-#include "uart_port.hpp"
-#include "c620.hpp"
-#include "test_subsystem.hpp"
+#include "subsystem.hpp"
 
 #include <array>
 #include <atomic>
@@ -43,20 +39,14 @@ RAM_D1_BSS inline rtos::Task<
 > can_communication_task;
 
 // EB: 这里声明需要用到的外设和子系统（机构）
-inline C620 can1_c620{can1_bus};
-inline C620Motor test_motor{can1_c620, 1};
-inline TestSubsystem test_subsystem{test_motor};
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
-inline const std::array<Subsystem*, 1> subsystems{&test_subsystem};
+inline const std::array<Subsystem*, 0> subsystems{};
 
 // EB: 这里声明你测试时需要用到的外设和子系统（机构）
 // 必须是 subsystems 的子集；测试只等待并准备此集合，其余子系统保持待机。
-inline const std::array<Subsystem*, 1> test_subsystems{&test_subsystem};
-
-DMA_BUFFER_BSS inline UartPortDma<32, 32, 32 * 2> uart2_port{huart2, {}};
-inline Rs485Bus rs4851_bus{uart2_port};
+inline const std::array<Subsystem*, 0> test_subsystems{};
 
 /**
  * @brief 初始化 DWT 并启动三路 CAN；CAN 设备已在构造时自动注册。
@@ -101,11 +91,12 @@ struct Robot_Context {
 using Tree = M::PeerRoot<
     M::Leaf< Disable >,
     M::Composite< Enable,
-        M::Leaf< Starting >,
         M::Composite< Manual,
+            M::Leaf< ManualStarting >,
             M::Leaf< UniversalManual >
         >,
         M::Composite< Auto,
+            M::Leaf< AutoStarting >,
             M::Leaf< WaitUpperComputer >,
             M::Leaf< DevelopingAuto >,
             M::Leaf< Paused >
