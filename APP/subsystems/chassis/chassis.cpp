@@ -15,8 +15,8 @@ constexpr float kHalfLength = 0.273125f;   // 半长（前-后，546.25/2）
 constexpr float kHalfWidth = 0.223065f;    // 半宽（左-右，446.13/2）
 
 // 最大运动速度
-constexpr float kMaxLinearSpeed = 1.0f;     // m/s（vy=1 时底盘线速度）
-constexpr float kMaxAngularSpeed = 1.5708f; // rad/s（90°/s，右摇杆右端）
+constexpr float kMaxLinearSpeed = 3.0f;         // m/s（vy=1 时底盘线速度）
+constexpr float kMaxAngularSpeed = 3.14159265f; // rad/s（180°/s，右摇杆右端）
 
 // 归一化速度 → 车轮转速 (rad/s) 的换算系数
 constexpr float kLinearToWheel = kMaxLinearSpeed / kWheelRadius;
