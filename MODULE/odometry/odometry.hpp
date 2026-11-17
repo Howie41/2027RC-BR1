@@ -7,17 +7,20 @@
 
 namespace odometry {
 
+/// @brief 度 → 弧度（三角运算用）。
+constexpr float kDegToRad = 3.14159265f / 180.0f;
+
 /// @brief 世界坐标系状态：位姿、速度、加速度，供点跟踪接口使用。
 struct State {
     float x{0.0f};      // 全局 x (m)
     float y{0.0f};      // 全局 y (m)
-    float yaw{0.0f};    // 航向角 (rad)
+    float yaw{0.0f};    // 航向角 (°)
     float vx{0.0f};     // 全局速度 x (m/s)
     float vy{0.0f};     // 全局速度 y (m/s)
-    float omega{0.0f};  // 角速度 (rad/s)
+    float omega{0.0f};  // 角速度 (°/s)
     float ax{0.0f};     // 全局加速度 x (m/s²)
     float ay{0.0f};     // 全局加速度 y (m/s²)
-    float alpha{0.0f};  // 角加速度 (rad/s²)
+    float alpha{0.0f};  // 角加速度 (°/s²)
 };
 
 /// @brief 世界坐标系估计器：维护全局位姿，后续用卡尔曼滤波融合 IMU/编码器/雷达。
@@ -34,7 +37,7 @@ public:
 private:
     std::uint32_t last_update_ms_{0};
     float last_omega_{0.0f};
-    float yaw_bias_{0.0f};  // 航向偏置：世界 yaw = imu.yaw - yaw_bias_
+    float yaw_bias_{0.0f};  // 航向偏置 (°)：世界 yaw = imu.yaw - yaw_bias_
     bool first_{true};
 };
 
@@ -56,9 +59,10 @@ inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
     if (dt > 0.0f) state.alpha = (state.omega - last_omega_) / dt;
     last_omega_ = state.omega;
 
-    // 机体加速度 → 全局加速度（绕 z 旋转 yaw）。
-    const float c = std::cos(state.yaw);
-    const float s = std::sin(state.yaw);
+    // 机体加速度 → 全局加速度（绕 z 旋转 yaw，度转弧度做三角运算）。
+    const float yaw_rad = state.yaw * kDegToRad;
+    const float c = std::cos(yaw_rad);
+    const float s = std::sin(yaw_rad);
     state.ax = imu.ax * c - imu.ay * s;
     state.ay = imu.ax * s + imu.ay * c;
 

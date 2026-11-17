@@ -15,8 +15,10 @@ constexpr float kHalfLength = 0.273125f;   // 半长（前-后，546.25/2）
 constexpr float kHalfWidth = 0.223065f;    // 半宽（左-右，446.13/2）
 
 // 物理速度 → 车轮转速 (rad/s) 的换算系数
+constexpr float kDegToRad = 3.14159265f / 180.0f;
 constexpr float kLinearToWheel = 1.0f / kWheelRadius;
-constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / kWheelRadius;
+constexpr float kRotationToWheel =
+    kDegToRad * (kHalfLength + kHalfWidth) / kWheelRadius;  // °/s → 轮 rad/s
 
 // 旧框架 PID 增益按 deg/s 标定，换算到 rad/s
 constexpr float kDegPerRad = 57.29578f;

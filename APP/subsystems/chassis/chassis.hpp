@@ -12,7 +12,7 @@ namespace robot {
 class Chassis final : public Subsystem {
 public:
     static constexpr float kMaxLinearSpeed = 3.0f;         // 最大线速度 (m/s)
-    static constexpr float kMaxAngularSpeed = 3.14159265f; // 最大角速度 (rad/s，180°/s)
+    static constexpr float kMaxAngularSpeed = 180.0f; // 最大角速度 (°/s)
 
     /// @brief fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
     Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
