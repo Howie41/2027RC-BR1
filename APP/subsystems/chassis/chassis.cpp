@@ -54,8 +54,12 @@ bool Chassis::all_online() const {
     return online;
 }
 
-bool Chassis::isOnline() const {
-    return all_online();
+bool Chassis::isOnline(FaultInfo& online_info) const {
+    const bool online = all_online();
+    if (!online) {
+        RECORD_FAULT(online_info, "Chassis motor offline");
+    }
+    return online;
 }
 
 bool Chassis::setVelocity(float vx, float vy, float omega) {

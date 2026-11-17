@@ -22,7 +22,7 @@ public:
     void set_force_offline(bool offline) { force_offline_ = offline; }
 
 private:
-    [[nodiscard]] bool isOnline() const override;
+    [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;
     void onRequestReset() noexcept override;
     void onPrepare() override;
     [[nodiscard]] Readiness onCheckReadiness() override;
