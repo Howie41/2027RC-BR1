@@ -2,8 +2,6 @@
 #include "config.hpp"
 #include "hfsm.hpp"
 
-#include <cstdint>
-
 namespace robot {
 
 struct ManualStarting : M::State {
@@ -72,10 +70,7 @@ struct TestRunning : M::State {
     void entryGuard(GuardControl& control);
     HFSM_STATE_CALLBACKS_WITH_BASE(M);
 // EB: 这里写测试业务要用的量 begin
-private:
-    bool speed_sequence_active_{false};
-    unsigned speed_phase_{0};
-    std::uint32_t speed_phase_started_ms_{0};
+
 // EB: end
 };
 struct Fault : M::State {
