@@ -7,24 +7,23 @@ namespace robot {
 /// @brief 无头模式：SwA 2000 时摇杆平移相对固定世界方向，切换瞬间锁定当前航向为前方。
 class HeadlessMode {
 public:
-    static constexpr float k180 = 180.0f;
-    static constexpr float kDegToRad = 3.14159265f / 180.0f;
+    static constexpr float kPi = 3.14159265f;
 
     /// @brief 当前是否无头模式。
     bool active() const { return active_; }
 
-    /// @brief 相对锁定前方的航向 (°)。
+    /// @brief 相对锁定前方的航向 (rad)。
     float relative_yaw() const { return yaw_; }
 
     /// @brief 更新模式并刷新相对航向；拨到无头的瞬间锁定当前航向为前方。
     /// @param enabled SwA==2000。
-    /// @param world_yaw 当前世界航向 (°)。
+    /// @param world_yaw 当前世界航向 (rad)。
     void update(bool enabled, float world_yaw) {
         if (enabled && !active_) bias_ = world_yaw;
         active_ = enabled;
         yaw_ = world_yaw - bias_;
-        while (yaw_ > k180) yaw_ -= 2.0f * k180;
-        while (yaw_ < -k180) yaw_ += 2.0f * k180;
+        while (yaw_ > kPi) yaw_ -= 2.0f * kPi;
+        while (yaw_ < -kPi) yaw_ += 2.0f * kPi;
     }
 
     /// @brief 复位：回到有头模式，偏置清零。
@@ -41,9 +40,8 @@ public:
             vy = sy;
             return;
         }
-        const float yaw_rad = yaw_ * kDegToRad;
-        const float c = std::cos(yaw_rad);
-        const float s = std::sin(yaw_rad);
+        const float c = std::cos(yaw_);
+        const float s = std::sin(yaw_);
         vx = c * sx + s * sy;
         vy = -s * sx + c * sy;
     }
