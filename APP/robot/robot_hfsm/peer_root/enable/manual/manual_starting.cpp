@@ -1,0 +1,47 @@
+#include "robot.hpp"
+#include "states.hpp"
+
+void robot::ManualStarting::enter() {
+    robot_context.recovery_mode = Robot_Context::RecoveryMode::Manual;
+    phase_ = Phase::Preparing;
+    for (auto* subsystem : subsystems) {
+        if (subsystem->state() == Subsystem::State::Disabled || subsystem->hasFailed()) {
+            subsystem->requestPrepare();
+        } else {
+            (void)subsystem->requestStandby();
+        }
+    }
+}
+
+void robot::ManualStarting::update(robot::Control& control) {
+    bool all_standby = true;
+    bool all_running = true;
+    for (const auto* subsystem : subsystems) {
+        const auto state = subsystem->state();
+        if (state == Subsystem::State::Failed) {
+            control.changeTo<Fault>();
+            return;
+        }
+        all_standby &= state == Subsystem::State::Standby;
+        all_running &= state == Subsystem::State::Running;
+    }
+    if (phase_ == Phase::Preparing) {
+        if (!all_standby) return;
+        for (auto* subsystem : subsystems) {
+            if (!subsystem->requestRun()) {
+                auto& context = control.context();
+                context.pending_fault_source = subsystem;
+                context.pending_fault_reason = Robot_Context::FaultReason::RunRejected;
+                // 手动模式启动期间，子系统拒绝运行请求。
+                RECORD_FAULT(context.pending_fault_details, "Subsystem rejected run during manual startup");
+                control.changeTo<Fault>();
+                return;
+            }
+        }
+        phase_ = Phase::WaitingRunning;
+        return;
+    }
+    if (all_running) control.changeTo<UniversalManual>();
+}
+
+void robot::ManualStarting::exit() {}
