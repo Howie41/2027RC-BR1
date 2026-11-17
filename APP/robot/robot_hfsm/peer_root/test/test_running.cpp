@@ -29,7 +29,6 @@ void robot::TestRunning::update(robot::Control& control) {
 
     // EB: 这里写测试业务逻辑
 
-    }
     // EB: end
 }
 
