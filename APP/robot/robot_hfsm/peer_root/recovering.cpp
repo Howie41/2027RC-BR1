@@ -43,6 +43,8 @@ void robot::Recovering::update(robot::Control& control) {
             if (!subsystem->requestRun()) {
                 context.pending_fault_source = subsystem;
                 context.pending_fault_reason = Robot_Context::FaultReason::RunRejected;
+                // 故障恢复期间，子系统拒绝运行请求。
+                RECORD_FAULT(context.pending_fault_details, "Subsystem rejected run during recovery");
                 control.changeTo<Fault>();
                 return;
             }
