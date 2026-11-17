@@ -16,11 +16,17 @@ rtos::Task<"chassis", [] {
         float vy = 0.0f;
         float omega = 0.0f;
         if (robot::remote.online()) {
-            vx = robot::remote.left_x();
-            vy = robot::remote.left_y();
+            // 车头定义旋转 180°：摇杆前进/右平移取反，旋转（omega）不受影响。
+            const float sx = -robot::remote.left_x();
+            const float sy = -robot::remote.left_y();
+
+            // 无头模式：SwA 2000 时摇杆平移相对固定世界方向，切换瞬间锁定当前航向为前方。
+            robot::headless.update(robot::remote.switch_a() == 2000, robot::world_frame.state.yaw);
+            robot::headless.apply(sx, sy, vx, vy);
+
             const float omega_cmd = -robot::remote.right_x();
 
-            // 角度跟踪：遥控旋转指令积分成目标航向，PD 修正抵抗外部扰动。
+            // 角度跟踪：位置式 PID 维持目标航向。
             omega = robot::point_tracker.update(
                 omega_cmd, robot::world_frame.state.yaw, robot::world_frame.state.omega, dt);
 

@@ -19,6 +19,7 @@
 #include "hwt901b.hpp"
 #include "odometry.hpp"
 #include "point_tracker.hpp"
+#include "headless_mode.hpp"
 
 #include <array>
 #include <atomic>
@@ -68,6 +69,7 @@ DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart8_port{huart8, {}};
 inline imu::Data imu_data{};
 inline odometry::Estimator world_frame{};
 inline tracking::PointTracker point_tracker{};
+inline HeadlessMode headless{};
 
 DMA_BUFFER_BSS inline UartPortDma<32, 32, 32 * 2> uart2_port{huart2, {}};
 inline Rs485Bus rs4851_bus{uart2_port};
