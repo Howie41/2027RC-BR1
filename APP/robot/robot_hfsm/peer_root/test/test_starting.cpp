@@ -33,6 +33,8 @@ void robot::TestStarting::update(robot::Control& control) {
                 auto& context = control.context();
                 context.pending_fault_source = subsystem;
                 context.pending_fault_reason = Robot_Context::FaultReason::RunRejected;
+                // 测试模式启动期间，子系统拒绝运行请求。
+                RECORD_FAULT(context.pending_fault_details, "Subsystem rejected run during test startup");
                 control.changeTo<Fault>();
                 return;
             }
