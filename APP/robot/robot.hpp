@@ -101,11 +101,12 @@ struct Robot_Context {
 using Tree = M::PeerRoot<
     M::Leaf< Disable >,
     M::Composite< Enable,
-        M::Leaf< Starting >,
         M::Composite< Manual,
+            M::Leaf< ManualStarting >,
             M::Leaf< UniversalManual >
         >,
         M::Composite< Auto,
+            M::Leaf< AutoStarting >,
             M::Leaf< WaitUpperComputer >,
             M::Leaf< DevelopingAuto >,
             M::Leaf< Paused >

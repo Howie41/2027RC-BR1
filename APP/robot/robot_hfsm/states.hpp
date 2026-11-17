@@ -6,8 +6,8 @@
 
 namespace robot {
 
-struct Starting : M::State {
-    static constexpr const char* NAME = "Starting";
+struct ManualStarting : M::State {
+    static constexpr const char* NAME = "ManualStarting";
     HFSM_STATE_CALLBACKS_WITH_BASE(M);
 
 private:
@@ -34,6 +34,14 @@ struct UniversalManual : M::State {
 struct Auto : M::State {
     static constexpr const char* NAME = "Auto";
     HFSM_STATE_CALLBACKS_WITH_BASE(M);
+};
+struct AutoStarting : M::State {
+    static constexpr const char* NAME = "AutoStarting";
+    HFSM_STATE_CALLBACKS_WITH_BASE(M);
+
+private:
+    enum class Phase { Preparing, WaitingRunning };
+    Phase phase_{Phase::Preparing};
 };
 struct WaitUpperComputer : M::State {
     static constexpr const char* NAME = "WaitUpperComputer";
