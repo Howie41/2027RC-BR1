@@ -64,7 +64,11 @@ USBD_HandleTypeDef hUsbDeviceHS;
 void MX_USB_DEVICE_Init(void)
 {
   /* USER CODE BEGIN USB_DEVICE_Init_PreTreatment */
-
+  static uint8_t initialized = 0U;
+  if (initialized != 0U)
+  {
+    return;
+  }
   /* USER CODE END USB_DEVICE_Init_PreTreatment */
 
   /* Init Device Library, add supported class and start the library. */
@@ -86,6 +90,7 @@ void MX_USB_DEVICE_Init(void)
   }
 
   /* USER CODE BEGIN USB_DEVICE_Init_PostTreatment */
+  initialized = 1U;
   HAL_PWREx_EnableUSBVoltageDetector();
 
   /* USER CODE END USB_DEVICE_Init_PostTreatment */
