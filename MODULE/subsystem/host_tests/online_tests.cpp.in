@@ -1,0 +1,103 @@
+#include "subsystem.hpp"
+
+#include <cassert>
+#include <cstring>
+
+class DeviceSubsystem final : public Subsystem {
+public:
+    bool motor_online{true};
+    bool sensor_online{true};
+    bool provide_details{true};
+    bool replace_request{false};
+    bool output_enabled{false};
+
+private:
+    bool isOnline(FaultInfo& fault) const override {
+        if (!motor_online && provide_details) RECORD_FAULT(fault, "Motor offline");
+        if (!sensor_online && provide_details) RECORD_FAULT(fault, "Sensor offline");
+        return motor_online && sensor_online;
+    }
+
+    Readiness onCheckReadiness() override { return Readiness::Ready; }
+
+    bool onRun(bool enabled) override {
+        output_enabled = enabled;
+        if (!enabled) {
+            RECORD_FAULT(current_fault_, "Shutdown detail must not replace offline reason");
+            if (replace_request) {
+                replace_request = false;
+                requestDisable();
+            }
+        }
+        return true;
+    }
+};
+
+static void expectReason(const DeviceSubsystem& subsystem, const char* reason) {
+    const auto info = subsystem.faultInfo();
+    assert(info.reason != nullptr && std::strcmp(info.reason, reason) == 0);
+    assert(info.file != nullptr && info.line > 0);
+}
+
+int main() {
+    DeviceSubsystem subsystem;
+    subsystem.motor_online = false;
+    subsystem.requestPrepare();
+    subsystem.periodic();
+    assert(subsystem.state() == Subsystem::State::Preparing);
+    assert(subsystem.faultInfo().reason == nullptr);
+    assert(!subsystem.output_enabled);
+
+    subsystem.motor_online = true;
+    subsystem.periodic();
+    assert(subsystem.isStandby());
+    assert(subsystem.requestRun());
+    subsystem.periodic();
+    assert(subsystem.isRunning());
+
+    subsystem.motor_online = false;
+    subsystem.sensor_online = false;
+    subsystem.periodic();
+    assert(subsystem.hasFailed());
+    assert(!subsystem.output_enabled);
+    expectReason(subsystem, "Motor offline");
+    assert(std::strcmp(subsystem.faultInfo().file, "online_tests.cpp") == 0);
+
+    subsystem.motor_online = true;
+    subsystem.periodic();
+    assert(subsystem.hasFailed());
+    expectReason(subsystem, "Motor offline");
+    subsystem.requestDisable();
+    subsystem.periodic();
+    expectReason(subsystem, "Motor offline");
+
+    subsystem.sensor_online = true;
+    subsystem.requestPrepare();
+    subsystem.periodic();
+    assert(subsystem.isStandby());
+    subsystem.sensor_online = false;
+    subsystem.periodic();
+    assert(subsystem.hasFailed());
+    expectReason(subsystem, "Sensor offline");
+
+    subsystem.sensor_online = true;
+    subsystem.requestPrepare();
+    subsystem.periodic();
+    subsystem.provide_details = false;
+    subsystem.motor_online = false;
+    subsystem.periodic();
+    assert(subsystem.hasFailed());
+    expectReason(subsystem, "Subsystem went offline after preparation");
+
+    subsystem.motor_online = true;
+    subsystem.provide_details = true;
+    subsystem.requestPrepare();
+    subsystem.periodic();
+    subsystem.motor_online = false;
+    subsystem.replace_request = true;
+    subsystem.periodic();
+    assert(!subsystem.hasFailed());
+    expectReason(subsystem, "Subsystem went offline after preparation");
+    subsystem.periodic();
+    assert(subsystem.state() == Subsystem::State::Disabled);
+}

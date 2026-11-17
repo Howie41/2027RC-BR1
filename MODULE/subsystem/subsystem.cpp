@@ -92,13 +92,16 @@ void Subsystem::periodic() {
     }
 
     const bool was_failed = phase_ == State::Failed;
+    FaultInfo offline_fault{};
     if (request.mode == Mode::Disabled || phase_ == State::Failed) {
         (void)onRun(false);
     } 
-    else if (!isOnline()) {
+    else if (!isOnline(offline_fault)) {
         (void)onRun(false);
         current_fault_ = {};
+        // 仅在已建立运行条件或请求运行时才报告掉线；否则允许等待上线。
         if (request.mode == Mode::Run || prepared_) {
+            current_fault_ = offline_fault;
             // 已建立运行条件后，进入/保持待机时掉线同样需要显式恢复。
             RECORD_FAULT(current_fault_, "Subsystem went offline after preparation");
             phase_ = State::Failed;

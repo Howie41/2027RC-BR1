@@ -46,8 +46,8 @@ protected:
     // 回调记录后仍须返回 false / Readiness::Failed，由基类发布 Failed 和现场。
     FaultInfo current_fault_{};
 
-    // 子系统内部的设备事实；整机不检查在线，派生类须同步读取反馈。
-    [[nodiscard]] virtual bool isOnline() const = 0;
+    // 同步检查设备在线；离线时可向 fault 记录首个设备原因，字符串须具有静态生命周期。
+    [[nodiscard]] virtual bool isOnline(FaultInfo& fault) const = 0;
     // 准备或禁用请求方的短临界区内清空旧目标；待机请求不调用。
     // 不得阻塞、操作硬件或调用生命周期请求。
     virtual void onRequestReset() noexcept {}
