@@ -49,12 +49,12 @@ RAM_D1_BSS inline rtos::Task<
 > can_communication_task;
 
 // EB: 这里声明需要用到的外设和子系统（机构）
-// 底盘（全向轮），CAN1 电机 1~4 = FR/FL/RL/RR。
+// 底盘（全向轮），CAN1 电机 1~4 = 左后/右后/右前/左前。
 inline C620 can1_c620{can1_bus};
-inline C620Motor chassis_fr{can1_c620, 1};
-inline C620Motor chassis_fl{can1_c620, 2};
-inline C620Motor chassis_rl{can1_c620, 3};
-inline C620Motor chassis_rr{can1_c620, 4};
+inline C620Motor chassis_fr{can1_c620, 3};
+inline C620Motor chassis_fl{can1_c620, 4};
+inline C620Motor chassis_rl{can1_c620, 1};
+inline C620Motor chassis_rr{can1_c620, 2};
 inline Chassis chassis{chassis_fr, chassis_fl, chassis_rl, chassis_rr};
 
 // EB: 这里声明整车的外设和子系统（机构）
