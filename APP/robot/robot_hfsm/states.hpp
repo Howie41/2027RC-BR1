@@ -47,29 +47,6 @@ struct Paused : M::State {
     static constexpr const char* NAME = "Paused";
     HFSM_STATE_CALLBACKS_WITH_BASE(M);
 };
-struct Test : M::State {
-    static constexpr const char* NAME = "Test";
-    HFSM_STATE_CALLBACKS_WITH_BASE(M);
-};
-struct TestStarting : M::State {
-    static constexpr const char* NAME = "TestStarting";
-    HFSM_STATE_CALLBACKS_WITH_BASE(M);
-
-private:
-    enum class Phase { Preparing, WaitingRunning };
-    Phase phase_{Phase::Preparing};
-};
-struct TestRunning : M::State {
-    static constexpr const char* NAME = "TestRunning";
-    void entryGuard(GuardControl& control);
-    HFSM_STATE_CALLBACKS_WITH_BASE(M);
-// EB: 这里写测试业务要用的量 begin
-private:
-    bool speed_sequence_active_{false};
-    unsigned speed_phase_{0};
-    std::uint32_t speed_phase_started_ms_{0};
-// EB: end
-};
 struct Fault : M::State {
     static constexpr const char* NAME = "Fault";
     void exitGuard(GuardControl& control);
