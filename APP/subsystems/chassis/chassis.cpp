@@ -14,14 +14,9 @@ constexpr float kWheelRadius = 0.06475f;   // 轮子半径
 constexpr float kHalfLength = 0.273125f;   // 半长（前-后，546.25/2）
 constexpr float kHalfWidth = 0.223065f;    // 半宽（左-右，446.13/2）
 
-// 最大运动速度
-constexpr float kMaxLinearSpeed = 3.0f;         // m/s（vy=1 时底盘线速度）
-constexpr float kMaxAngularSpeed = 3.14159265f; // rad/s（180°/s，右摇杆右端）
-
-// 归一化速度 → 车轮转速 (rad/s) 的换算系数
-constexpr float kLinearToWheel = kMaxLinearSpeed / kWheelRadius;
-constexpr float kRotationToWheel =
-    kMaxAngularSpeed * (kHalfLength + kHalfWidth) / kWheelRadius;
+// 物理速度 → 车轮转速 (rad/s) 的换算系数
+constexpr float kLinearToWheel = 1.0f / kWheelRadius;
+constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / kWheelRadius;
 
 // 旧框架 PID 增益按 deg/s 标定，换算到 rad/s
 constexpr float kDegPerRad = 57.29578f;
@@ -68,9 +63,9 @@ bool Chassis::setVelocity(float vx, float vy, float omega) {
     taskENTER_CRITICAL();
     const bool running = acceptsCommands();
     if (running) {
-        vx_ = std::clamp(vx, -1.0f, 1.0f);
-        vy_ = std::clamp(vy, -1.0f, 1.0f);
-        omega_ = std::clamp(omega, -1.0f, 1.0f);
+        vx_ = std::clamp(vx, -kMaxLinearSpeed, kMaxLinearSpeed);
+        vy_ = std::clamp(vy, -kMaxLinearSpeed, kMaxLinearSpeed);
+        omega_ = std::clamp(omega, -kMaxAngularSpeed, kMaxAngularSpeed);
     }
     taskEXIT_CRITICAL();
     return running;

@@ -8,13 +8,16 @@
 
 namespace robot {
 
-/// @brief 全向轮底盘：四轮速度闭环，接收归一化速度并解算各轮目标。
+/// @brief 全向轮底盘：四轮速度闭环，接收物理速度并解算各轮目标。
 class Chassis final : public Subsystem {
 public:
+    static constexpr float kMaxLinearSpeed = 3.0f;         // 最大线速度 (m/s)
+    static constexpr float kMaxAngularSpeed = 3.14159265f; // 最大角速度 (rad/s，180°/s)
+
     /// @brief fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
     Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
 
-    /// @brief 设置归一化运动目标：vx 向右(+x) / vy 向前(+y) / omega 逆时针，各 -1.0~1.0。
+    /// @brief 设置运动目标：vx 向右(+x, m/s) / vy 向前(+y, m/s) / omega 逆时针(rad/s)。
     /// @return 仅在 Running 且目标有限时接受并返回 true。
     [[nodiscard]] bool setVelocity(float vx, float vy, float omega);
 

@@ -8,8 +8,8 @@ namespace tracking {
 /// @brief 点跟踪（当前仅角度跟踪）：旋转时直接跟手，松开后用位置式 PID 维持航向。
 class PointTracker {
 public:
-    /// @brief 更新跟踪器并输出修正后的归一化角速度。
-    /// @param omega_cmd 遥控的归一化旋转指令 (-1..1)。
+    /// @brief 更新跟踪器并输出修正后的角速度 (rad/s)。
+    /// @param omega_cmd 遥控的旋转指令 (rad/s)。
     /// @param yaw 当前航向 (rad)，来自世界坐标系。
     /// @param omega 当前角速度 (rad/s)，用于微分阻尼。
     /// @param dt 时间步长 (s)，用于积分。
@@ -27,11 +27,11 @@ public:
 
 private:
     static constexpr float kPi = 3.14159265f;
-    static constexpr float kDeadband = 0.01f;  // 旋转指令死区
-    static constexpr float kYawKp = 1.8f;      // 比例（航向误差 → 归一化角速度）
-    static constexpr float kYawKi = 1.6f;      // 积分（小，消除稳态误差）
-    static constexpr float kYawKd = 0.5f;      // 微分（陀螺角速度阻尼）
-    static constexpr float kMaxAngularSpeed = 3.14159265f;  // 180°/s，角速度归一化基准
+    static constexpr float kMaxOmega = kPi;      // 180°/s，输出限幅
+    static constexpr float kDeadband = 0.03f;    // 旋转指令死区 (rad/s)
+    static constexpr float kYawKp = 1.8f * kPi;  // 比例 (1/s)
+    static constexpr float kYawKi = 1.6f * kPi;  // 积分 (1/s²)
+    static constexpr float kYawKd = 0.5f;        // 微分阻尼（无量纲）
     static constexpr float kIntegralLimit = 0.6f;  // 积分限幅 (rad·s)，抗饱和
 
     float target_yaw_{0.0f};
@@ -64,9 +64,8 @@ inline float PointTracker::update(float omega_cmd, float yaw, float omega, float
     integral_ = std::clamp(integral_, -kIntegralLimit, kIntegralLimit);
 
     // 微分用陀螺角速度（d(err)/dt = -omega），构成一阶阻尼、抑制超调。
-    const float omega_norm = omega / kMaxAngularSpeed;
-    const float out = kYawKp * err + kYawKi * integral_ - kYawKd * omega_norm;
-    return std::clamp(out, -1.0f, 1.0f);
+    const float out = kYawKp * err + kYawKi * integral_ - kYawKd * omega;
+    return std::clamp(out, -kMaxOmega, kMaxOmega);
 }
 
 }  // namespace tracking
