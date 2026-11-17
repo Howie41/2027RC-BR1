@@ -16,12 +16,12 @@ TestSubsystem::TestSubsystem(C620Motor& motor)
           .improvement = {1U << PidController::Improvement::increment_of_out}
       }) {}
 
-bool TestSubsystem::isOnline(FaultInfo& fault) const {
+bool TestSubsystem::isOnline(FaultInfo& online_info) const {
     taskENTER_CRITICAL();
     const bool online = motor_.is_online();
     taskEXIT_CRITICAL();
     if (!online) {
-        RECORD_FAULT(fault, "Test motor offline");
+        RECORD_FAULT(online_info, "Test motor offline");
     }
     return online;
 }

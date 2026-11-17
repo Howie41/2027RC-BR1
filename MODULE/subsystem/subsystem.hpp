@@ -36,6 +36,8 @@ public:
     [[nodiscard]] bool hasFailed() const noexcept;
     // 最近一次已发布失败的现场快照；禁用、重新准备不会清除，由下一次失败更新。
     [[nodiscard]] FaultInfo faultInfo() const noexcept;
+    // 最近一次在线检查快照；全部在线时为空，禁用或失败后保留至下次检查。
+    [[nodiscard]] FaultInfo onlineInfo() const noexcept;
     void periodic();
 
 protected:
@@ -46,8 +48,8 @@ protected:
     // 回调记录后仍须返回 false / Readiness::Failed，由基类发布 Failed 和现场。
     FaultInfo current_fault_{};
 
-    // 同步检查设备在线；离线时可向 fault 记录首个设备原因，字符串须具有静态生命周期。
-    [[nodiscard]] virtual bool isOnline(FaultInfo& fault) const = 0;
+    // 同步检查设备在线；离线时向 online_info 记录首个设备原因，字符串须具有静态生命周期。
+    [[nodiscard]] virtual bool isOnline(FaultInfo& online_info) const = 0;
     // 准备或禁用请求方的短临界区内清空旧目标；待机请求不调用。
     // 不得阻塞、操作硬件或调用生命周期请求。
     virtual void onRequestReset() noexcept {}
@@ -77,6 +79,7 @@ private:
     Request latest_request_{}; // 请求方和控制任务通过短临界区同步。
     std::atomic<State> state_{State::Disabled};
     FaultInfo fault_info_{}; // 发布和读取均受短临界区保护。
+    FaultInfo online_info_{}; // 最近一次有效在线检查，发布和读取均受短临界区保护。
     // onStandby 回调所属任务的不透明句柄；读写均受短临界区保护。
     void* standby_callback_task_{nullptr};
 

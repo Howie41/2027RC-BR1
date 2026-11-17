@@ -55,6 +55,12 @@ FaultInfo Subsystem::faultInfo() const noexcept {
     taskEXIT_CRITICAL();
     return info;
 }
+FaultInfo Subsystem::onlineInfo() const noexcept {
+    taskENTER_CRITICAL();
+    const auto info = online_info_;
+    taskEXIT_CRITICAL();
+    return info;
+}
 // 判断现在是否接受业务目标。
 bool Subsystem::acceptsCommands() const noexcept {
     const auto current_state = state();
@@ -90,18 +96,22 @@ void Subsystem::periodic() {
         }
         phase_ = request.mode == Mode::Disabled ? State::Disabled : State::Preparing;
     }
-
+    // 判断本轮是否需要检查在线状态；禁用或已失败时不检查。
     const bool was_failed = phase_ == State::Failed;
-    FaultInfo offline_fault{};
+    FaultInfo online_info{};
+    
+    const bool online_checked = request.mode != Mode::Disabled && !was_failed;
+    const bool online = online_checked ? isOnline(online_info) : false;
+    if (online) online_info = {};
     if (request.mode == Mode::Disabled || phase_ == State::Failed) {
         (void)onRun(false);
     } 
-    else if (!isOnline(offline_fault)) {
+    else if (!online) {
         (void)onRun(false);
         current_fault_ = {};
         // 仅在已建立运行条件或请求运行时才报告掉线；否则允许等待上线。
         if (request.mode == Mode::Run || prepared_) {
-            current_fault_ = offline_fault;
+            current_fault_ = online_info;
             // 已建立运行条件后，进入/保持待机时掉线同样需要显式恢复。
             RECORD_FAULT(current_fault_, "Subsystem went offline after preparation");
             phase_ = State::Failed;
@@ -165,6 +175,11 @@ void Subsystem::periodic() {
     // 计算期间的新请求在后续周期执行；本轮可能产生一次旧输出，但不能覆盖新状态。
     taskENTER_CRITICAL();
     if (latest_request_.generation == request.generation && latest_request_.mode == request.mode) {
+        if (online_checked) {
+            // record只保存首个原因，这里是为没有提供具体掉线信息的故障提供默认信息
+            if (!online) RECORD_FAULT(online_info, "Subsystem is offline");
+            online_info_ = online_info;
+        }
         if (!was_failed && phase_ == State::Failed && current_fault_.reason != nullptr) {
             fault_info_ = current_fault_;
         }
