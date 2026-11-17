@@ -19,6 +19,10 @@
 #include <array>
 #include <atomic>
 
+//调试
+#include "catch_ground_cube_subsystem.hpp"
+
+
 namespace robot {
 
 inline bool initialized{false};
@@ -47,9 +51,19 @@ inline C620 can1_c620{can1_bus};
 inline C620Motor test_motor{can1_c620, 1};
 inline TestSubsystem test_subsystem{test_motor};
 
+//调试
+// EB: 抓地立方体机构（双3508同步升降 + 双气缸）【待确认 CAN 分配/电调编号】
+inline C620 can2_c620{can2_bus};                          // CAN2 如已有 C620 则复用此行删除
+inline C620Motor catch_motor_left{can2_c620, 5};          // 电调编号5 = 反馈ID 0x205
+inline C620Motor catch_motor_right{can2_c620, 6};         // 电调编号6 = 反馈ID 0x206
+inline CatchGroundCubeSubsystem catch_ground_cube{catch_motor_left, catch_motor_right};
+
+
+
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
 inline const std::array<Subsystem*, 1> subsystems{&test_subsystem};
+
 
 // EB: 这里声明你测试时需要用到的外设和子系统（机构）
 // 必须是 subsystems 的子集；测试只等待并准备此集合，其余子系统保持待机。

@@ -18,3 +18,14 @@ rtos::Task<"test_subsystem", ([] {
 // 如果要测试多个子系统，推荐再创建一个任务，免得被其他子系统阻塞，创建方式参照上面的例子，复制下来改改就行
 // 只需要复制上面那一点就行，zhy框架简化了开任务的部分
 // 要是实在不习惯，用老一套也不是不行（，不过很不推荐
+
+//调试
+// 抓地立方体机构：1kHz 控制周期【待确认】栈/优先级
+rtos::Task<"catch_cube", ([] {
+    while (true) {
+        const auto now = rtos::now_tick();
+        robot::catch_ground_cube.periodic();
+        rtos::delay_until(now + 1);
+    }
+}), 1024 * 4, rtos::TaskPriority::High> catch_cube_task;
+
