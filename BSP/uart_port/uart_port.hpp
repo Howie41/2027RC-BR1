@@ -214,6 +214,8 @@ public:
 
         // 已运行的环形接收不能重置读取位置
         if (m_uart_handle.RxState != HAL_UART_STATE_READY) return HAL_BUSY;
+        // 清除启动阶段残留的接收错误标志，避免启用错误中断后立即中止接收。
+        __HAL_UART_CLEAR_FLAG(&m_uart_handle, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF);
         m_last_rx_buffer_pos = 0;
 
         auto result = HAL_UARTEx_ReceiveToIdle_DMA(

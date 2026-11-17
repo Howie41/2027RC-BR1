@@ -28,7 +28,7 @@ private:
     // Periodic()见robot/tasks/subsystems.cpp
 
     // EB: 这个是检查外设是否在线的函数，这个例子里是检查c620电机是否在线
-    [[nodiscard]] bool isOnline() const override;
+    [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;
 
     // EB: 准备和禁用请求会调用这个函数，待机请求不调用
     // 用于清除残留的业务目标，和运行状态。比如把目标速度清零

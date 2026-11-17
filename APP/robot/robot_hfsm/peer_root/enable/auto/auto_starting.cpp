@@ -1,7 +1,7 @@
 #include "robot.hpp"
 #include "states.hpp"
 
-void robot::Starting::enter() {
+void robot::AutoStarting::enter() {
     robot_context.recovery_mode = Robot_Context::RecoveryMode::Manual;
     phase_ = Phase::Preparing;
     for (auto* subsystem : subsystems) {
@@ -13,7 +13,7 @@ void robot::Starting::enter() {
     }
 }
 
-void robot::Starting::update(robot::Control& control) {
+void robot::AutoStarting::update(robot::Control& control) {
     bool all_standby = true;
     bool all_running = true;
     for (const auto* subsystem : subsystems) {
@@ -32,8 +32,8 @@ void robot::Starting::update(robot::Control& control) {
                 auto& context = control.context();
                 context.pending_fault_source = subsystem;
                 context.pending_fault_reason = Robot_Context::FaultReason::RunRejected;
-                // 手动模式启动期间，子系统拒绝运行请求。
-                RECORD_FAULT(context.pending_fault_details, "Subsystem rejected run during manual startup");
+                // 自动模式启动期间，子系统拒绝运行请求。
+                RECORD_FAULT(context.pending_fault_details, "Subsystem rejected run during auto startup");
                 control.changeTo<Fault>();
                 return;
             }
@@ -41,7 +41,7 @@ void robot::Starting::update(robot::Control& control) {
         phase_ = Phase::WaitingRunning;
         return;
     }
-    if (all_running) control.changeTo<UniversalManual>();
+    if (all_running) control.changeTo<WaitUpperComputer>();
 }
 
-void robot::Starting::exit() {}
+void robot::AutoStarting::exit() {}
