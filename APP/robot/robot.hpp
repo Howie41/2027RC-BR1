@@ -67,7 +67,7 @@ inline const std::array<Subsystem*, 0> test_subsystems{};
 
 // i-Bus 遥控接收机（UART4，115200 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart4_port{huart4, {}};
-inline Remote remote{};
+inline remote::Remote remote{};
 
 // IMU（HWT901B，UART8，9600 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart8_port{huart8, {}};

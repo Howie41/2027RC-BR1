@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace robot {
+namespace remote {
 
 /// @brief i-Bus 遥控器消息中心：由接收任务喂入，其它任务读取摇杆与开关。
 class Remote {
@@ -57,4 +57,4 @@ private:
     std::uint32_t frames_{0};
 };
 
-}  // namespace robot
+}  // namespace remote
