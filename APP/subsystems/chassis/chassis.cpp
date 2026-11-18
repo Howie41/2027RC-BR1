@@ -14,9 +14,10 @@ constexpr float kWheelRadius = 0.06475f;   // 轮子半径
 constexpr float kHalfLength = 0.273125f;   // 半长（前-后，546.25/2）
 constexpr float kHalfWidth = 0.223065f;    // 半宽（左-右，446.13/2）
 
-// 物理速度 → 车轮转速 (rad/s) 的换算系数
-constexpr float kLinearToWheel = 1.0f / kWheelRadius;
-constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / kWheelRadius;
+// 物理速度 → 车轮转速 (rad/s)：45° X 布局含 √2 因子。
+constexpr float kSqrt2 = 1.41421356f;
+constexpr float kLinearToWheel = 1.0f / (kSqrt2 * kWheelRadius);
+constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheelRadius);
 
 // 旧框架 PID 增益按 deg/s 标定，换算到 rad/s
 constexpr float kDegPerRad = 57.29578f;
@@ -111,10 +112,10 @@ bool Chassis::onRun(bool enabled) {
         const float s = vy * kLinearToWheel;    // 前 (rad/s)
         const float w = omega * kRotationToWheel;  // 旋转 (rad/s)
         const float target[4] = {
-            v - s - w,
-            v + s - w,
-             -v + s - w,
-             -v - s - w,
+            -v + s + w,   // FR：(a,b)，方向(-1,1)
+            -v - s + w,   // FL：(-a,b)，方向(-1,-1)
+             v - s + w,   // RL：(-a,-b)，方向(1,-1)
+             v + s + w,   // RR：(a,-b)，方向(1,1)
         };
         for (std::size_t i = 0; i < 4; ++i) {
             current_ma[i] = pids_[i]->calculate(measured_speed_[i], target[i]);
