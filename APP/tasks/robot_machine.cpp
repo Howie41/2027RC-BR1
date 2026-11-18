@@ -12,4 +12,5 @@ rtos::Task<"robot_machine_task", [] {
         rtos::delay(20);
     }
 
-}, 4096, rtos::TaskPriority::AboveNormal> robot_machine_task;
+// 【s34 扩容】MemManage 崩溃定位到任务栈区，静态分析无深调用链，翻倍排除溢出分支
+}, 8192, rtos::TaskPriority::Normal> robot_machine_task;

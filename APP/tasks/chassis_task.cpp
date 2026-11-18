@@ -44,4 +44,5 @@ rtos::Task<"chassis", [] {
         robot::chassis.periodic();
         rtos::delay_until(now + 1);
     }
-}, 1024 * 4, rtos::TaskPriority::High> chassis_task;
+// 【s34 扩容】MemManage 崩溃定位到任务栈区，静态分析无深调用链，翻倍排除溢出分支
+}, 2048 * 4, rtos::TaskPriority::Normal> chassis_task;

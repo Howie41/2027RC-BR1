@@ -27,6 +27,7 @@
 
 //调试
 #include "catch_ground_cube_subsystem.hpp"
+#include "catch_ground_cube.hpp"
 
 
 namespace robot {
@@ -49,7 +50,7 @@ RAM_D1_BSS inline rtos::Task<
     "can_communication",
     can_communication_entry,
     2048 * 4,
-    rtos::TaskPriority::Realtime
+    rtos::TaskPriority::Normal
 > can_communication_task;
 
 // EB: 这里声明需要用到的外设和子系统（机构）
@@ -72,12 +73,14 @@ inline CatchGroundCubeSubsystem catch_ground_cube{catch_motor_left, catch_motor_
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
-inline const std::array<Subsystem*, 1> subsystems{&chassis};
+// 【s34 注册】按 robot.hpp注册修改说明-s33.md 修改 1 注册 catch_ground_cube（faults 数组按 size() 自动适配）
+inline const std::array<Subsystem*, 2> subsystems{&chassis, &catch_ground_cube};
 
 
 // EB: 这里声明你测试时需要用到的外设和子系统（机构）
 // 必须是 subsystems 的子集；测试只等待并准备此集合，其余子系统保持待机。
-inline const std::array<Subsystem*, 0> test_subsystems{};
+// 【s34 注册】按 robot.hpp注册修改说明-s33.md 修改 2 注册（须与 subsystems 同时改）
+inline const std::array<Subsystem*, 1> test_subsystems{&catch_ground_cube};
 
 // i-Bus 遥控接收机（UART4，115200 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart4_port{huart4, {}};

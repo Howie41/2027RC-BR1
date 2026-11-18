@@ -84,7 +84,7 @@ public:
     float sync_threshold_deg  = 5.0f;     // 同步误差报警阈值(度)【待填】
     float sync_comp_gain      = 0.1f;     // 同步误差交叉补偿增益【待填】
     // 【待确认】气缸驱动模式，试车后按实际阀型定
-    uint8_t  valve_mode       = VALVE_MODE_PULSE;
+    uint8_t  valve_mode       = VALVE_MODE_LEVEL;// VALVE_MODE_PULSE=脉冲自保持阀，VALVE_MODE_LEVEL=电平保持阀
     uint16_t valve_pulse_ms   = 50;       // 电磁阀驱动脉宽(ms)，仅脉冲模式使用，常见50~100
     // PID 参数（默认沿用 Lift 模板，装机构后实测微调）【待填】
     struct PidParam { float kp, ki, kd, max_out, integral_limit; };

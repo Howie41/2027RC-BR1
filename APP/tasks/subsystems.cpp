@@ -13,7 +13,7 @@
 //         rtos::delay_until(now + 1);
 //     }
 //     // 优先级别动，这里的test_subsystem_task可以改
-// }), 1024 * 4, rtos::TaskPriority::High> test_subsystem_task;
+// }), 1024 * 4, rtos::TaskPriority::Normal> test_subsystem_task;
 
 // 如果要测试多个子系统，推荐再创建一个任务，免得被其他子系统阻塞，创建方式参照上面的例子，复制下来改改就行
 // 只需要复制上面那一点就行，zhy框架简化了开任务的部分
@@ -27,5 +27,6 @@ rtos::Task<"catch_cube", ([] {
         robot::catch_ground_cube.periodic();
         rtos::delay_until(now + 1);
     }
-}), 1024 * 4, rtos::TaskPriority::High> catch_cube_task;
+// 【s34 扩容】MemManage 崩溃定位到任务栈区，静态分析无深调用链，翻倍排除溢出分支
+}), 2048 * 4, rtos::TaskPriority::Normal> catch_cube_task;
 

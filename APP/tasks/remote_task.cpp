@@ -21,4 +21,5 @@ rtos::Task<"remote_rx", [] {
             }
         }
     }
-}, 1024 * 4, rtos::TaskPriority::High> remote_rx_task;
+// 【s34 扩容】MemManage 崩溃定位到任务栈区，静态分析无深调用链，翻倍排除溢出分支
+}, 2048 * 4, rtos::TaskPriority::Normal> remote_rx_task;
