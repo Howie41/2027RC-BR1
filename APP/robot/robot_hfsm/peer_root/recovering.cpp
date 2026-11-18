@@ -9,9 +9,8 @@ void robot::Recovering::entryGuard(robot::GuardControl& control) {
 }
 
 void robot::Recovering::enter() {
-    // 复位坐标系与点跟踪：机器人恢复后位姿重新标定。
+    // 复位坐标系与无头模式：机器人恢复后位姿重新标定。
     world_frame.reset();
-    point_tracker.reset();
     headless.reset();
 
     phase_ = Phase::Preparing;

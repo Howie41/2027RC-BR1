@@ -31,7 +31,7 @@ Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
       pids_{&fr_pid_, &fl_pid_, &rl_pid_, &rr_pid_} {
     const PidController::Config config{
         .kp = 20.0f * kDegPerRad,   // 旧 20 mA/(deg/s)，换算到 rad/s
-        .ki = 2.0f * kDegPerRad,    // 旧 2 mA/(deg/s)，换算到 rad/s
+        .ki = 1.2f * kDegPerRad,    // 旧 2 mA/(deg/s)，换算到 rad/s
         .kd = 0.0f,
         .max_out = 20000.0f,
         .integral_limit = 5000.0f,
@@ -111,10 +111,10 @@ bool Chassis::onRun(bool enabled) {
         const float s = vy * kLinearToWheel;    // 前 (rad/s)
         const float w = omega * kRotationToWheel;  // 旋转 (rad/s)
         const float target[4] = {
-             v - s - w,
-             v + s - w,
-            -v + s - w,
-            -v - s - w,
+            v - s - w,
+            v + s - w,
+             -v + s - w,
+             -v - s - w,
         };
         for (std::size_t i = 0; i < 4; ++i) {
             current_ma[i] = pids_[i]->calculate(measured_speed_[i], target[i]);
