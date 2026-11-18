@@ -37,7 +37,7 @@ rtos::Task<"chassis", [] {
             ax *= kLinearAccel;
             ay *= kLinearAccel;
 
-            const float alpha = -robot::remote.right_x() * kAngularAccel;
+            const float alpha = robot::remote.right_x() * kAngularAccel;
 
             vx_target = std::clamp(vx_target + ax * dt,
                 -robot::Chassis::kMaxLinearSpeed, robot::Chassis::kMaxLinearSpeed);
