@@ -60,6 +60,8 @@ private:
 
     /// @brief 自动模式：从话题队列接收速度指令（目标 + 实时）。
     void receiveVelocityCommand();
+    /// @brief 手动模式：轮速正运动学 → 实际速度（假设不打滑）。
+    void updateActualVelocity();
 
     C620Motor* motors_[4]{};
     PidController fr_pid_;

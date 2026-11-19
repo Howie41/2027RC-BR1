@@ -161,6 +161,18 @@ void Chassis::receiveVelocityCommand() {
     }
 }
 
+void Chassis::updateActualVelocity() {
+    // 正运动学：轮速 → 机体线速度/角速度（手动模式，假设不打滑）。
+    const float u_fr = measured_speed_[0];
+    const float u_fl = measured_speed_[1];
+    const float u_rl = measured_speed_[2];
+    const float u_rr = measured_speed_[3];
+    const float k = kWheelRadius / (2.0f * kSqrt2);
+    actual_vx_ = (u_rl + u_rr - u_fr - u_fl) * k;
+    actual_vy_ = (u_fr + u_rr - u_fl - u_rl) * k;
+    actual_omega_ = (u_fr + u_fl + u_rl + u_rr) * k / (kHalfLength + kHalfWidth);
+}
+
 void Chassis::onPrepare() {
     for (auto* pid : pids_) pid->init();
     vx_pid_.init();
@@ -194,11 +206,14 @@ bool Chassis::onRun(bool enabled) {
         taskEXIT_CRITICAL();
 
         if (auto_mode_) {
-            // 全自动模式：接收速度指令（目标 + 实时）→ 外环 PID → 命令速度。
+            // 全自动模式：接收速度指令（目标 + 雷达实时速度）→ 外环 PID → 命令速度。
             receiveVelocityCommand();
             vx = vx_pid_.calculate(actual_vx_, target_vx_);
             vy = vy_pid_.calculate(actual_vy_, target_vy_);
             omega = omega_pid_.calculate(actual_omega_, target_omega_);
+        } else {
+            // 手动模式：轮速正运动学 → 实际速度（假设不打滑）。
+            updateActualVelocity();
         }
 
         // 世界坐标系：vx 向右(+x)、vy 向前(+y)、omega 逆时针(+)；X 布局 FR/FL/RL/RR。
