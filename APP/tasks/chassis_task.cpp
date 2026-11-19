@@ -20,11 +20,10 @@ rtos::Task<"chassis", [] {
         last_tick = now;
 
         if (robot::remote.online()) {
-            // 无头模式：摇杆"前方"朝向锁定方向；有头模式：车头 180° 取反。
-            const bool headless = robot::remote.switch_a() == 2000;
-            robot::headless.update(headless, robot::world_frame.state.yaw);
-            const float sx = headless ? robot::remote.left_x() : -robot::remote.left_x();
-            const float sy = headless ? robot::remote.left_y() : -robot::remote.left_y();
+            // 车头 180° 取反；摇杆给加速度，无头模式旋转变换后积分成目标速度。
+            const float sx = -robot::remote.left_x();
+            const float sy = -robot::remote.left_y();
+            robot::headless.update(robot::remote.switch_a() == 2000, robot::world_frame.state.yaw);
             float ax = 0.0f;
             float ay = 0.0f;
             robot::headless.apply(sx, sy, ax, ay);
