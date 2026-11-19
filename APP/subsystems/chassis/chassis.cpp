@@ -1,5 +1,6 @@
 #include "chassis.hpp"
 
+#include "robot.hpp"
 #include "rtos_utility.hpp"
 
 #include <algorithm>
@@ -23,8 +24,10 @@ constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheel
 constexpr float kDegPerRad = 57.29578f;
 }  // namespace
 
-Chassis::Chassis(remote::Remote& remote, C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
+Chassis::Chassis(remote::Remote& remote, odometry::Estimator& odometry, C620Motor& fr,
+                 C620Motor& fl, C620Motor& rl, C620Motor& rr)
     : remote_{remote},
+      odometry_{odometry},
       motors_{&fr, &fl, &rl, &rr},
       fr_pid_("chassis_fr_speed"),
       fl_pid_("chassis_fl_speed"),
@@ -108,11 +111,11 @@ void Chassis::resetVelocity() noexcept {
     taskEXIT_CRITICAL();
 }
 
-void Chassis::setAutoMode(bool auto_mode, float current_yaw) {
+void Chassis::setAutoMode(bool auto_mode) {
     auto_mode_ = auto_mode;
     remote_.set_enabled(!auto_mode);  // 全自动模式禁用遥控器。
     if (auto_mode) {
-        setReferenceYaw(current_yaw);  // 同步基准航向（雷达坐标系）。
+        odometry_.reset();  // 同步基准航向（雷达坐标系），复用里程计 yaw 偏置。
         // TODO: 启用底盘线速度 PID（外环）。
     } else {
         // TODO: 复位底盘线速度 PID。

@@ -55,7 +55,8 @@ inline C620Motor chassis_fl{can1_c620, 2};
 inline C620Motor chassis_rl{can1_c620, 3};
 inline C620Motor chassis_rr{can1_c620, 4};
 inline remote::Remote remote{};
-inline Chassis chassis{remote, chassis_fr, chassis_fl, chassis_rl, chassis_rr};
+inline odometry::Estimator world_frame{};
+inline Chassis chassis{remote, world_frame, chassis_fr, chassis_fl, chassis_rl, chassis_rr};
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
@@ -71,7 +72,6 @@ DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart4_port{huart4, {}};
 // IMU（HWT901B，UART8，9600 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart8_port{huart8, {}};
 inline imu::Data imu_data{};
-inline odometry::Estimator world_frame{};
 inline HeadlessMode headless{};
 
 DMA_BUFFER_BSS inline UartPortDma<32, 32, 32 * 2> uart2_port{huart2, {}};
