@@ -82,6 +82,23 @@ void Chassis::integrateVelocity(float ax, float ay, float alpha, float dt) {
     taskEXIT_CRITICAL();
 }
 
+void Chassis::integrateOmega(float alpha, float dt) {
+    taskENTER_CRITICAL();
+    if (acceptsCommands()) {
+        omega_ = std::clamp(omega_ + alpha * dt, -kMaxAngularSpeed, kMaxAngularSpeed);
+    }
+    taskEXIT_CRITICAL();
+}
+
+void Chassis::setLinearVelocity(float vx, float vy) {
+    taskENTER_CRITICAL();
+    if (acceptsCommands()) {
+        vx_ = std::clamp(vx, -kMaxLinearSpeed, kMaxLinearSpeed);
+        vy_ = std::clamp(vy, -kMaxLinearSpeed, kMaxLinearSpeed);
+    }
+    taskEXIT_CRITICAL();
+}
+
 void Chassis::resetVelocity() noexcept {
     taskENTER_CRITICAL();
     vx_ = 0.0f;

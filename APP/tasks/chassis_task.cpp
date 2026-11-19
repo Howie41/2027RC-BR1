@@ -20,24 +20,31 @@ rtos::Task<"chassis", [] {
         last_tick = now;
 
         if (robot::remote.online()) {
-            // 车头 180° 取反；摇杆给加速度，无头模式旋转变换后积分成目标速度。
-            const float sx = -robot::remote.left_x();
-            const float sy = -robot::remote.left_y();
-            robot::headless.update(robot::remote.switch_a() == 2000, robot::world_frame.state.yaw);
-            float ax = 0.0f;
-            float ay = 0.0f;
-            robot::headless.apply(sx, sy, ax, ay);
-            ax *= kLinearAccel;
-            ay *= kLinearAccel;
-
+            // 车头 180° 取反；摇杆给加速度（增量）。
+            const float ax = -robot::remote.left_x() * kLinearAccel;
+            const float ay = -robot::remote.left_y() * kLinearAccel;
             const float alpha = robot::remote.right_x() * kAngularAccel;
 
-            // 积分速度增量（加速度 × dt），由 Chassis 接口完成。
-            robot::chassis.integrateVelocity(ax, ay, alpha, dt);
+            const bool headless = robot::remote.switch_a() == 2000;
+            robot::headless.update(headless, robot::world_frame.state.yaw);
+
+            if (headless) {
+                // 无头模式：锁定系（世界系）线速度积分，转机体系；角速度单独积分。
+                robot::headless.integrateVelocity(ax, ay, dt);
+                robot::chassis.integrateOmega(alpha, dt);
+                float vx = 0.0f;
+                float vy = 0.0f;
+                robot::headless.bodyVelocity(vx, vy);
+                robot::chassis.setLinearVelocity(vx, vy);
+            } else {
+                // 有头模式：机体系速度积分（平移 + 角速度）。
+                robot::chassis.integrateVelocity(ax, ay, alpha, dt);
+            }
 
             // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零。
             if (robot::remote.switch_d() == 2000) {
                 robot::chassis.resetVelocity();
+                robot::headless.resetVelocity();
             }
 
             // 通道 9（CH9，0 基下标 8）拨到 2000 = 请求故障恢复；上升沿触发一次。
@@ -51,6 +58,7 @@ rtos::Task<"chassis", [] {
             robot::chassis.set_force_offline(robot::remote.channel(9) == 2000);
         } else {
             robot::chassis.resetVelocity();
+            robot::headless.resetVelocity();
         }
         robot::chassis.periodic();
         rtos::delay_until(now + 1);

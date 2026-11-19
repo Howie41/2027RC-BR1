@@ -24,6 +24,12 @@ public:
     /// @brief 积分速度增量（加速度 × dt），限幅到最大速度；仅在 Running 时生效。
     void integrateVelocity(float ax, float ay, float alpha, float dt);
 
+    /// @brief 积分角速度（角加速度 × dt），限幅；仅在 Running 时生效。
+    void integrateOmega(float alpha, float dt);
+
+    /// @brief 设置线速度目标（机体系，直接，限幅）；仅在 Running 时生效。
+    void setLinearVelocity(float vx, float vy);
+
     /// @brief 清零速度目标。
     void resetVelocity() noexcept;
 

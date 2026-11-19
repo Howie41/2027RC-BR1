@@ -16,8 +16,6 @@ public:
     float relative_yaw() const { return yaw_; }
 
     /// @brief 更新模式并刷新相对航向；拨到无头的瞬间锁定当前航向为前方。
-    /// @param enabled SwA==2000。
-    /// @param world_yaw 当前世界航向 (rad)。
     void update(bool enabled, float world_yaw) {
         if (enabled && !active_) bias_ = world_yaw;
         active_ = enabled;
@@ -26,30 +24,43 @@ public:
         while (yaw_ < -kPi) yaw_ += 2.0f * kPi;
     }
 
-    /// @brief 复位：回到有头模式，偏置清零。
+    /// @brief 积分锁定系（世界系）线速度，避免速度随车身旋转。
+    void integrateVelocity(float ax, float ay, float dt) {
+        if (active_) {
+            vx_ += ax * dt;
+            vy_ += ay * dt;
+        }
+    }
+
+    /// @brief 锁定系线速度 → 机体系线速度。
+    void bodyVelocity(float& vx, float& vy) const {
+        const float c = std::cos(yaw_);
+        const float s = std::sin(yaw_);
+        vx = c * vx_ + s * vy_;
+        vy = -s * vx_ + c * vy_;
+    }
+
+    /// @brief 清零锁定系线速度。
+    void resetVelocity() {
+        vx_ = 0.0f;
+        vy_ = 0.0f;
+    }
+
+    /// @brief 复位：回到有头模式，偏置与速度清零。
     void reset() {
         active_ = false;
         bias_ = 0.0f;
         yaw_ = 0.0f;
-    }
-
-    /// @brief 摇杆平移 (sx,sy) → 机体系平移 (vx,vy)。有头模式直接透传。
-    void apply(float sx, float sy, float& vx, float& vy) const {
-        if (!active_) {
-            vx = sx;
-            vy = sy;
-            return;
-        }
-        const float c = std::cos(yaw_);
-        const float s = std::sin(yaw_);
-        vx = c * sx + s * sy;
-        vy = -s * sx + c * sy;
+        vx_ = 0.0f;
+        vy_ = 0.0f;
     }
 
 private:
     bool active_{false};
     float bias_{0.0f};
     float yaw_{0.0f};
+    float vx_{0.0f};  // 锁定系线速度 (m/s)
+    float vy_{0.0f};  // 锁定系线速度 (m/s)
 };
 
 }  // namespace robot
