@@ -14,10 +14,10 @@ rtos::Task<"chassis", [] {
     std::uint32_t last_tick = 0;
     bool first_tick = true;
 
-    // 目标速度（摇杆加速度积分得到，掉线清零）。
-    float vx_target = 0.0f;
-    float vy_target = 0.0f;
-    float omega_target = 0.0f;
+    // 目标速度（摇杆加速度积分得到，置位/掉线清零）。
+    auto& vx_target = robot::chassis_target.vx;
+    auto& vy_target = robot::chassis_target.vy;
+    auto& omega_target = robot::chassis_target.omega;
 
     while (true) {
         const auto now = rtos::now_tick();

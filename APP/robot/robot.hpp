@@ -56,6 +56,14 @@ inline C620Motor chassis_rl{can1_c620, 3};
 inline C620Motor chassis_rr{can1_c620, 4};
 inline Chassis chassis{chassis_fr, chassis_fl, chassis_rl, chassis_rr};
 
+/// @brief 手动控制目标速度（chassis_task 积分，置位/掉线时清零）。
+struct ChassisTarget {
+    float vx{0.0f};    // m/s
+    float vy{0.0f};    // m/s
+    float omega{0.0f}; // rad/s
+};
+inline ChassisTarget chassis_target{};
+
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
 inline const std::array<Subsystem*, 1> subsystems{&chassis};
