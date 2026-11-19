@@ -33,6 +33,14 @@ public:
     /// @brief 清零速度目标。
     void resetVelocity() noexcept;
 
+    /// @brief 设置全自动模式（始终使用无头模式，速度来自上位机）。
+    void setAutoMode(bool auto_mode) { auto_mode_ = auto_mode; }
+    bool autoMode() const { return auto_mode_; }
+
+    /// @brief 设置基准航向（同步雷达坐标系，供世界系速度 → 机体系变换）。
+    void setReferenceYaw(float yaw) { reference_yaw_ = yaw; }
+    float referenceYaw() const { return reference_yaw_; }
+
     /// @brief 强制掉线（测试用）：置位后视为电机离线，用于演练 Fault 流程。
     void set_force_offline(bool offline) { force_offline_ = offline; }
 
@@ -58,6 +66,8 @@ private:
     float omega_{0.0f};
     float measured_speed_[4]{};
     bool force_offline_{false};
+    bool auto_mode_{false};
+    float reference_yaw_{0.0f};
 };
 
 }  // namespace robot

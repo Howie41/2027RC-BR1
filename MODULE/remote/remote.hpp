@@ -44,9 +44,13 @@ public:
     /// @brief 通用通道值（0 基下标）。
     std::uint16_t channel(int index) const { return channels_[index]; }
 
-    /// @brief 最近 kTimeoutMs 内收到过帧则在线。
+    /// @brief 启用/禁用遥控器（全自动模式可禁用）。
+    void set_enabled(bool enabled) { enabled_ = enabled; }
+
+    /// @brief 启用且最近 kTimeoutMs 内收到过帧则在线。
     bool online() const {
-        return static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
+        return enabled_ &&
+               static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
     }
 
 private:
@@ -55,6 +59,7 @@ private:
         1500, 1500, 1500, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
     std::uint32_t last_feed_ms_{0};
     std::uint32_t frames_{0};
+    bool enabled_{true};
 };
 
 }  // namespace remote
