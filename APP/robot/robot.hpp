@@ -56,7 +56,7 @@ inline C620Motor chassis_rl{can1_c620, 3};
 inline C620Motor chassis_rr{can1_c620, 4};
 inline remote::Remote remote{};
 inline odometry::Estimator world_frame{};
-inline rtos::Subscriber<TargetVelocity, 4> velocity_target{"velocity_target"};
+inline rtos::Subscriber<VelocityCommand, 4> velocity_target{"velocity_target"};
 inline Chassis chassis{remote, world_frame, velocity_target, chassis_fr, chassis_fl, chassis_rl,
                        chassis_rr};
 

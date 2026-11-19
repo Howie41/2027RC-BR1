@@ -25,7 +25,7 @@ constexpr float kDegPerRad = 57.29578f;
 }  // namespace
 
 Chassis::Chassis(remote::Remote& remote, odometry::Estimator& odometry,
-                 rtos::Subscriber<TargetVelocity, 4>& velocity_target,
+                 rtos::Subscriber<VelocityCommand, 4>& velocity_target,
                  C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
     : remote_{remote},
       odometry_{odometry},
@@ -149,25 +149,16 @@ void Chassis::onRequestReset() noexcept {
     resetVelocity();
 }
 
-void Chassis::receiveTargetVelocity() {
-    const auto msg = velocity_target_.receive(0);  // 非阻塞取最新目标。
+void Chassis::receiveVelocityCommand() {
+    const auto msg = velocity_target_.receive(0);  // 非阻塞取最新指令。
     if (msg) {
-        target_vx_ = msg->vx;
-        target_vy_ = msg->vy;
-        target_omega_ = msg->omega;
+        target_vx_ = msg->target_vx;
+        target_vy_ = msg->target_vy;
+        target_omega_ = msg->target_omega;
+        actual_vx_ = msg->actual_vx;
+        actual_vy_ = msg->actual_vy;
+        actual_omega_ = msg->actual_omega;
     }
-}
-
-void Chassis::updateActualVelocity() {
-    // 正运动学：轮速 → 机体线速度/角速度。
-    const float u_fr = measured_speed_[0];
-    const float u_fl = measured_speed_[1];
-    const float u_rl = measured_speed_[2];
-    const float u_rr = measured_speed_[3];
-    const float k = kWheelRadius / (2.0f * kSqrt2);
-    actual_vx_ = (u_rl + u_rr - u_fr - u_fl) * k;
-    actual_vy_ = (u_fr + u_rr - u_fl - u_rl) * k;
-    actual_omega_ = (u_fr + u_fl + u_rl + u_rr) * k / (kHalfLength + kHalfWidth);
 }
 
 void Chassis::onPrepare() {
@@ -203,9 +194,8 @@ bool Chassis::onRun(bool enabled) {
         taskEXIT_CRITICAL();
 
         if (auto_mode_) {
-            // 全自动模式：接收目标速度 → 正运动学测实际速度 → 外环 PID → 命令速度。
-            receiveTargetVelocity();
-            updateActualVelocity();
+            // 全自动模式：接收速度指令（目标 + 实时）→ 外环 PID → 命令速度。
+            receiveVelocityCommand();
             vx = vx_pid_.calculate(actual_vx_, target_vx_);
             vy = vy_pid_.calculate(actual_vy_, target_vy_);
             omega = omega_pid_.calculate(actual_omega_, target_omega_);

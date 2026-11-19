@@ -6,7 +6,7 @@
 #include "pub_sub.hpp"
 #include "remote.hpp"
 #include "subsystem.hpp"
-#include "target_velocity.hpp"
+#include "velocity_command.hpp"
 
 #include <cstddef>
 
@@ -18,10 +18,10 @@ public:
     static constexpr float kMaxLinearSpeed = 3.0f;         // 最大线速度 (m/s)
     static constexpr float kMaxAngularSpeed = 2 * 3.14159265f; // 最大角速度 (rad/s，180°/s)
 
-    /// @brief remote 用于全自动模式禁用遥控器；odometry 用于同步基准航向；velocity_target 用于接收上位机目标速度；
+    /// @brief remote 用于全自动模式禁用遥控器；odometry 用于同步基准航向；velocity_target 用于接收上位机速度指令；
     ///        fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
     Chassis(remote::Remote& remote, odometry::Estimator& odometry,
-            rtos::Subscriber<TargetVelocity, 4>& velocity_target,
+            rtos::Subscriber<VelocityCommand, 4>& velocity_target,
             C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
 
     /// @brief 设置运动目标：vx 向右(+x, m/s) / vy 向前(+y, m/s) / omega 逆时针(rad/s)。
@@ -58,10 +58,8 @@ private:
 
     bool all_online() const;
 
-    /// @brief 自动模式：从话题队列接收目标速度。
-    void receiveTargetVelocity();
-    /// @brief 正运动学：轮速 → 机体线速度/角速度。
-    void updateActualVelocity();
+    /// @brief 自动模式：从话题队列接收速度指令（目标 + 实时）。
+    void receiveVelocityCommand();
 
     C620Motor* motors_[4]{};
     PidController fr_pid_;
@@ -78,12 +76,12 @@ private:
     remote::Remote& remote_;
     odometry::Estimator& odometry_;
     bool auto_mode_{false};
-    rtos::Subscriber<TargetVelocity, 4>& velocity_target_;
+    rtos::Subscriber<VelocityCommand, 4>& velocity_target_;
     // 目标速度（世界系，来自上位机话题）。
     float target_vx_{0.0f};
     float target_vy_{0.0f};
     float target_omega_{0.0f};
-    // 实际速度（机体系，正运动学测得）。
+    // 实际速度（世界系，雷达测量，来自上位机话题）。
     float actual_vx_{0.0f};
     float actual_vy_{0.0f};
     float actual_omega_{0.0f};
