@@ -2,79 +2,46 @@
 
 #include "hwt901b.hpp"
 
-#include <cmath>
 #include <cstdint>
 
 namespace odometry {
 
-/// @brief 世界坐标系状态：位姿、速度、加速度，供点跟踪接口使用。
+/// @brief 世界坐标系状态：当前仅保留航向与角速度（位置由上位机雷达提供）。
 struct State {
-    float x{0.0f};      // 全局 x (m)
-    float y{0.0f};      // 全局 y (m)
     float yaw{0.0f};    // 航向角 (rad)
-    float vx{0.0f};     // 全局速度 x (m/s)
-    float vy{0.0f};     // 全局速度 y (m/s)
     float omega{0.0f};  // 角速度 (rad/s)
-    float ax{0.0f};     // 全局加速度 x (m/s²)
-    float ay{0.0f};     // 全局加速度 y (m/s²)
-    float alpha{0.0f};  // 角加速度 (rad/s²)
 };
 
-/// @brief 世界坐标系估计器：维护全局位姿，后续用卡尔曼滤波融合 IMU/编码器/雷达。
+/// @brief 航向估计器：世界 yaw = imu.yaw - 偏置。
 class Estimator {
 public:
     State state{};
 
-    /// @brief 用 IMU 原始数据做惯性预测（当前为纯积分，后续替换为卡尔曼预测）。
+    /// @brief 用 IMU 数据更新航向。
     void predict(const imu::Data& imu, std::uint32_t now_ms);
 
-    /// @brief 复位坐标系：以当前位置为原点、当前航向为 0。
+    /// @brief 复位坐标系：以当前方向为基准 y 轴。
     void reset();
 
 private:
-    std::uint32_t last_update_ms_{0};
-    float last_omega_{0.0f};
     float yaw_bias_{0.0f};  // 航向偏置：世界 yaw = imu.yaw - yaw_bias_
     bool first_{true};
 };
 
 inline void Estimator::predict(const imu::Data& imu, std::uint32_t now_ms) {
-    const float dt =
-        first_ ? 0.0f : static_cast<float>(now_ms - last_update_ms_) / 1000.0f;
+    (void)now_ms;
     if (first_) {
-        // 首次预测：以当前 IMU yaw 为基准，使世界 yaw 从 0 开始（IMU 可能掉电前就在跑）。
+        // 首次预测：以当前 IMU yaw 为基准，世界 yaw 从 0 开始（IMU 可能掉电前就在跑）。
         yaw_bias_ = imu.yaw;
+        first_ = false;
     }
-    first_ = false;
-    last_update_ms_ = now_ms;
-
-    // 航向与角速度来自 IMU 原始数据（世界 yaw 减去偏置）。
     state.yaw = imu.yaw - yaw_bias_;
     state.omega = imu.wz;
-
-    // 角加速度 = 角速度差分。
-    if (dt > 0.0f) state.alpha = (state.omega - last_omega_) / dt;
-    last_omega_ = state.omega;
-
-    // 机体加速度 → 全局加速度（绕 z 旋转 yaw）。
-    const float c = std::cos(state.yaw);
-    const float s = std::sin(state.yaw);
-    state.ax = imu.ax * c - imu.ay * s;
-    state.ay = imu.ax * s + imu.ay * c;
-
-    // 积分得到全局速度与位置（纯惯性推算会漂移，后续用卡尔曼滤波融合多源）。
-    if (dt > 0.0f) {
-        state.vx += state.ax * dt;
-        state.vy += state.ay * dt;
-        state.x += state.vx * dt;
-        state.y += state.vy * dt;
-    }
 }
 
 inline void Estimator::reset() {
     state = {};
-    last_omega_ = 0.0f;
-    first_ = true;  // 下次 predict 会重新以当前 IMU yaw 为基准
+    first_ = true;  // 下次 predict 重新以当前 yaw 为基准（当前方向 = 基准 y 轴）
 }
 
 }  // namespace odometry
