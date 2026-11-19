@@ -23,8 +23,9 @@ constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheel
 constexpr float kDegPerRad = 57.29578f;
 }  // namespace
 
-Chassis::Chassis(C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
-    : motors_{&fr, &fl, &rl, &rr},
+Chassis::Chassis(remote::Remote& remote, C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
+    : remote_{remote},
+      motors_{&fr, &fl, &rl, &rr},
       fr_pid_("chassis_fr_speed"),
       fl_pid_("chassis_fl_speed"),
       rl_pid_("chassis_rl_speed"),
@@ -105,6 +106,17 @@ void Chassis::resetVelocity() noexcept {
     vy_ = 0.0f;
     omega_ = 0.0f;
     taskEXIT_CRITICAL();
+}
+
+void Chassis::setAutoMode(bool auto_mode, float current_yaw) {
+    auto_mode_ = auto_mode;
+    remote_.set_enabled(!auto_mode);  // 全自动模式禁用遥控器。
+    if (auto_mode) {
+        setReferenceYaw(current_yaw);  // 同步基准航向（雷达坐标系）。
+        // TODO: 启用底盘线速度 PID（外环）。
+    } else {
+        // TODO: 复位底盘线速度 PID。
+    }
 }
 
 void Chassis::onRequestReset() noexcept {
