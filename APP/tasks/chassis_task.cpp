@@ -1,6 +1,5 @@
 #include "robot.hpp"
 #include "rtos_task.hpp"
-#include <algorithm>
 
 namespace {
 // 摇杆满杆时的加速度（增量）。
@@ -13,11 +12,6 @@ rtos::Task<"chassis", [] {
     bool recovery_pressed = false;
     std::uint32_t last_tick = 0;
     bool first_tick = true;
-
-    // 目标速度（摇杆加速度积分得到，置位/掉线清零）。
-    auto& vx_target = robot::chassis_target.vx;
-    auto& vy_target = robot::chassis_target.vy;
-    auto& omega_target = robot::chassis_target.omega;
 
     while (true) {
         const auto now = rtos::now_tick();
@@ -37,18 +31,13 @@ rtos::Task<"chassis", [] {
             ay *= kLinearAccel;
 
             const float alpha = robot::remote.right_x() * kAngularAccel;
-            vx_target = std::clamp(vx_target + ax * dt,
-                -robot::Chassis::kMaxLinearSpeed, robot::Chassis::kMaxLinearSpeed);
-            vy_target = std::clamp(vy_target + ay * dt,
-                -robot::Chassis::kMaxLinearSpeed, robot::Chassis::kMaxLinearSpeed);
-            omega_target = std::clamp(omega_target + alpha * dt,
-                -robot::Chassis::kMaxAngularSpeed, robot::Chassis::kMaxAngularSpeed);
+
+            // 积分速度增量（加速度 × dt），由 Chassis 接口完成。
+            robot::chassis.integrateVelocity(ax, ay, alpha, dt);
 
             // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零。
             if (robot::remote.switch_d() == 2000) {
-                vx_target = 0.0f;
-                vy_target = 0.0f;
-                omega_target = 0.0f;
+                robot::chassis.resetVelocity();
             }
 
             // 通道 9（CH9，0 基下标 8）拨到 2000 = 请求故障恢复；上升沿触发一次。
@@ -61,11 +50,8 @@ rtos::Task<"chassis", [] {
             // 通道 10（CH10，0 基下标 9）拨到 2000 = 强制掉线（按住生效）。
             robot::chassis.set_force_offline(robot::remote.channel(9) == 2000);
         } else {
-            vx_target = 0.0f;
-            vy_target = 0.0f;
-            omega_target = 0.0f;
+            robot::chassis.resetVelocity();
         }
-        (void)robot::chassis.setVelocity(vx_target, vy_target, omega_target);
         robot::chassis.periodic();
         rtos::delay_until(now + 1);
     }

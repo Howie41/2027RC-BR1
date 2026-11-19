@@ -72,10 +72,26 @@ bool Chassis::setVelocity(float vx, float vy, float omega) {
     return running;
 }
 
-void Chassis::onRequestReset() noexcept {
+void Chassis::integrateVelocity(float ax, float ay, float alpha, float dt) {
+    taskENTER_CRITICAL();
+    if (acceptsCommands()) {
+        vx_ = std::clamp(vx_ + ax * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
+        vy_ = std::clamp(vy_ + ay * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
+        omega_ = std::clamp(omega_ + alpha * dt, -kMaxAngularSpeed, kMaxAngularSpeed);
+    }
+    taskEXIT_CRITICAL();
+}
+
+void Chassis::resetVelocity() noexcept {
+    taskENTER_CRITICAL();
     vx_ = 0.0f;
     vy_ = 0.0f;
     omega_ = 0.0f;
+    taskEXIT_CRITICAL();
+}
+
+void Chassis::onRequestReset() noexcept {
+    resetVelocity();
 }
 
 void Chassis::onPrepare() {

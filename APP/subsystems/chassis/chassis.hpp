@@ -21,6 +21,12 @@ public:
     /// @return 仅在 Running 且目标有限时接受并返回 true。
     [[nodiscard]] bool setVelocity(float vx, float vy, float omega);
 
+    /// @brief 积分速度增量（加速度 × dt），限幅到最大速度；仅在 Running 时生效。
+    void integrateVelocity(float ax, float ay, float alpha, float dt);
+
+    /// @brief 清零速度目标。
+    void resetVelocity() noexcept;
+
     /// @brief 强制掉线（测试用）：置位后视为电机离线，用于演练 Fault 流程。
     void set_force_offline(bool offline) { force_offline_ = offline; }
 

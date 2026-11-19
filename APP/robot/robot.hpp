@@ -48,21 +48,13 @@ RAM_D1_BSS inline rtos::Task<
 > can_communication_task;
 
 // EB: 这里声明需要用到的外设和子系统（机构）
-// 底盘（全向轮），CAN1 电机 1~4 = 左后/右后/右前/左前。
+// 底盘（全向轮），CAN1 电机 1~4 = 前右/前左/后左/后右。
 inline C620 can1_c620{can1_bus};
-inline C620Motor chassis_fr{can1_c620, 3};
-inline C620Motor chassis_fl{can1_c620, 4};
-inline C620Motor chassis_rl{can1_c620, 1};
-inline C620Motor chassis_rr{can1_c620, 2};
+inline C620Motor chassis_fr{can1_c620, 1};
+inline C620Motor chassis_fl{can1_c620, 2};
+inline C620Motor chassis_rl{can1_c620, 3};
+inline C620Motor chassis_rr{can1_c620, 4};
 inline Chassis chassis{chassis_fr, chassis_fl, chassis_rl, chassis_rr};
-
-/// @brief 手动控制目标速度（chassis_task 积分，置位/掉线时清零）。
-struct ChassisTarget {
-    float vx{0.0f};    // m/s
-    float vy{0.0f};    // m/s
-    float omega{0.0f}; // rad/s
-};
-inline ChassisTarget chassis_target{};
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。

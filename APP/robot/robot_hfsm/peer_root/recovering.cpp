@@ -12,7 +12,7 @@ void robot::Recovering::enter() {
     // 复位坐标系、无头模式与目标速度：机器人恢复后重新标定。
     world_frame.reset();
     headless.reset();
-    chassis_target = {};
+    chassis.resetVelocity();
 
     phase_ = Phase::Preparing;
     for (auto* subsystem : subsystems) {
