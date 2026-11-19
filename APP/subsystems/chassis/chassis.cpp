@@ -24,10 +24,12 @@ constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheel
 constexpr float kDegPerRad = 57.29578f;
 }  // namespace
 
-Chassis::Chassis(remote::Remote& remote, odometry::Estimator& odometry, C620Motor& fr,
-                 C620Motor& fl, C620Motor& rl, C620Motor& rr)
+Chassis::Chassis(remote::Remote& remote, odometry::Estimator& odometry,
+                 rtos::Subscriber<TargetVelocity, 4>& velocity_target,
+                 C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
     : remote_{remote},
       odometry_{odometry},
+      velocity_target_{velocity_target},
       motors_{&fr, &fl, &rl, &rr},
       fr_pid_("chassis_fr_speed"),
       fl_pid_("chassis_fl_speed"),
@@ -43,6 +45,26 @@ Chassis::Chassis(remote::Remote& remote, odometry::Estimator& odometry, C620Moto
         .improvement = {1U << PidController::integral_limit},
     };
     for (auto* pid : pids_) pid->configure(config);
+
+    // 外环线速度 PID（增量式，输出命令速度）。
+    const PidController::Config outer_linear{
+        .kp = 1.0f,
+        .ki = 0.5f,
+        .kd = 0.0f,
+        .max_out = kMaxLinearSpeed,
+        .improvement = {1U << PidController::increment_of_out},
+    };
+    vx_pid_.configure(outer_linear);
+    vy_pid_.configure(outer_linear);
+
+    const PidController::Config outer_angular{
+        .kp = 1.0f,
+        .ki = 0.5f,
+        .kd = 0.0f,
+        .max_out = kMaxAngularSpeed,
+        .improvement = {1U << PidController::increment_of_out},
+    };
+    omega_pid_.configure(outer_angular);
 }
 
 bool Chassis::all_online() const {
@@ -116,18 +138,43 @@ void Chassis::setAutoMode(bool auto_mode) {
     remote_.set_enabled(!auto_mode);  // 全自动模式禁用遥控器。
     if (auto_mode) {
         odometry_.reset();  // 同步基准航向（雷达坐标系），复用里程计 yaw 偏置。
-        // TODO: 启用底盘线速度 PID（外环）。
-    } else {
-        // TODO: 复位底盘线速度 PID。
     }
+    // 切换模式时复位外环线速度 PID。
+    vx_pid_.init();
+    vy_pid_.init();
+    omega_pid_.init();
 }
 
 void Chassis::onRequestReset() noexcept {
     resetVelocity();
 }
 
+void Chassis::receiveTargetVelocity() {
+    const auto msg = velocity_target_.receive(0);  // 非阻塞取最新目标。
+    if (msg) {
+        target_vx_ = msg->vx;
+        target_vy_ = msg->vy;
+        target_omega_ = msg->omega;
+    }
+}
+
+void Chassis::updateActualVelocity() {
+    // 正运动学：轮速 → 机体线速度/角速度。
+    const float u_fr = measured_speed_[0];
+    const float u_fl = measured_speed_[1];
+    const float u_rl = measured_speed_[2];
+    const float u_rr = measured_speed_[3];
+    const float k = kWheelRadius / (2.0f * kSqrt2);
+    actual_vx_ = (u_rl + u_rr - u_fr - u_fl) * k;
+    actual_vy_ = (u_fr + u_rr - u_fl - u_rl) * k;
+    actual_omega_ = (u_fr + u_fl + u_rl + u_rr) * k / (kHalfLength + kHalfWidth);
+}
+
 void Chassis::onPrepare() {
     for (auto* pid : pids_) pid->init();
+    vx_pid_.init();
+    vy_pid_.init();
+    omega_pid_.init();
 }
 
 Subsystem::Readiness Chassis::onCheckReadiness() {
@@ -154,6 +201,15 @@ bool Chassis::onRun(bool enabled) {
             measured_speed_[i] = motors_[i]->get_current_speed();
         }
         taskEXIT_CRITICAL();
+
+        if (auto_mode_) {
+            // 全自动模式：接收目标速度 → 正运动学测实际速度 → 外环 PID → 命令速度。
+            receiveTargetVelocity();
+            updateActualVelocity();
+            vx = vx_pid_.calculate(actual_vx_, target_vx_);
+            vy = vy_pid_.calculate(actual_vy_, target_vy_);
+            omega = omega_pid_.calculate(actual_omega_, target_omega_);
+        }
 
         // 世界坐标系：vx 向右(+x)、vy 向前(+y)、omega 逆时针(+)；X 布局 FR/FL/RL/RR。
         const float v = vx * kLinearToWheel;    // 右 (rad/s)

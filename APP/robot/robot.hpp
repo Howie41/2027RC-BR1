@@ -56,7 +56,9 @@ inline C620Motor chassis_rl{can1_c620, 3};
 inline C620Motor chassis_rr{can1_c620, 4};
 inline remote::Remote remote{};
 inline odometry::Estimator world_frame{};
-inline Chassis chassis{remote, world_frame, chassis_fr, chassis_fl, chassis_rl, chassis_rr};
+inline rtos::Subscriber<TargetVelocity, 4> velocity_target{"velocity_target"};
+inline Chassis chassis{remote, world_frame, velocity_target, chassis_fr, chassis_fl, chassis_rl,
+                       chassis_rr};
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
