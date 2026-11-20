@@ -1,0 +1,95 @@
+#include "robot.hpp"
+
+#include <cassert>
+#include <cstring>
+
+using namespace robot;
+
+static void tick() {
+    for (auto* subsystem : subsystems) subsystem->periodic();
+    robot_machine.update();
+}
+
+static void settle() {
+    for (unsigned i = 0; i < 12; ++i) tick();
+}
+
+static void authorizeRecovery() {
+    robot_context.recovery_requested.store(true);
+    tick();
+    assert(robot_machine.isActive<Recovering>());
+    assert(!robot_context.recovery_requested.load());
+    assert(world_frame.resets == point_tracker.resets);
+    assert(world_frame.resets == headless.resets);
+    assert(world_frame.resets > 0);
+}
+
+int main(int argc, char** argv) {
+    assert(argc == 2);
+    const bool manual = std::strcmp(argv[1], "manual") == 0;
+    const bool outside_fault = std::strcmp(argv[1], "outside_fault") == 0;
+    const bool retry = std::strcmp(argv[1], "retry") == 0;
+    const bool guard = std::strcmp(argv[1], "guard") == 0;
+    const bool empty = std::strcmp(argv[1], "empty") == 0;
+    if (!manual && !outside_fault) outside.online = false;
+    robot_machine.immediateChangeTo(manual ? M::stateId<ManualStarting>()
+                                          : M::stateId<TestStarting>());
+    settle();
+    if (manual) assert(robot_machine.isActive<UniversalManual>());
+    else assert(robot_machine.isActive<TestRunning>());
+    if (empty) {
+        robot_context.pending_fault_source = &participant;
+        robot_context.pending_fault_reason = Robot_Context::FaultReason::RunRejected;
+        robot_machine.immediateChangeTo<Fault>();
+    } else {
+        if (outside_fault) {
+            outside.control_ok = false;
+            outside.periodic();
+            assert(outside.hasFailed());
+        }
+        participant.control_ok = false;
+        tick();
+    }
+    assert(robot_machine.isActive<Fault>());
+    settle();
+    assert(robot_machine.isActive<Fault>());
+    assert(robot_context.faults[0] != Robot_Context::FaultReason::None);
+    if (outside_fault) assert(robot_context.faults[1] != Robot_Context::FaultReason::None);
+    if (guard) {
+        robot_machine.immediateChangeTo<Recovering>();
+        assert(robot_machine.isActive<Fault>());
+        assert(world_frame.resets == 0);
+        return 0;
+    }
+
+    participant.control_ok = true;
+    outside.control_ok = true;
+    if (outside_fault) outside.standby_ready = false;
+    authorizeRecovery();
+    if (retry) {
+        participant.control_ok = false;
+        settle();
+        assert(robot_machine.isActive<Fault>());
+        assert(!robot_context.recovery_requested.load());
+        participant.control_ok = true;
+        authorizeRecovery();
+    }
+    settle();
+    if (outside_fault) {
+        assert(robot_machine.isActive<Recovering>());
+        outside.standby_ready = true;
+        settle();
+        assert(outside.isStandby());
+    }
+    if (manual) {
+        assert(robot_machine.isActive<UniversalManual>());
+        assert(outside.isRunning());
+    } else {
+        assert(robot_machine.isActive<TestRunning>());
+        assert(!outside.isRunning());
+    }
+    if (!empty) assert(participant.isRunning());
+    else assert(participant.isStandby());
+    for (const auto reason : robot_context.faults) assert(reason == Robot_Context::FaultReason::None);
+    for (const auto info : robot_context.fault_details) assert(info.reason == nullptr);
+}
