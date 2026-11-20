@@ -9,11 +9,6 @@ void robot::Recovering::entryGuard(robot::GuardControl& control) {
 }
 
 void robot::Recovering::enter() {
-    // 复位坐标系、无头模式与目标速度：机器人恢复后重新标定。
-    chassis.resetYaw();
-    chassis.resetHeadless();
-    chassis.resetVelocity();
-
     phase_ = Phase::Preparing;
     for (auto* subsystem : subsystems) {
         if (subsystem->state() == Subsystem::State::Disabled) {

@@ -5,7 +5,7 @@
 #include <array>
 #include <cstdint>
 
-// IMU 接收任务：从 UART8 收取字节，解析后在角度帧到达时做惯性预测。
+// IMU 接收任务：从 UART8 收取字节，解析后更新 yaw_imu/omega_imu（底盘每周期读取）。
 rtos::Task<"imu_rx", [] {
     RUNTIME_ASSERT(robot::uart8_port.start_receive_to_idle_dma() == HAL_OK);
 
@@ -14,9 +14,7 @@ rtos::Task<"imu_rx", [] {
     while (true) {
         const auto length = robot::uart8_port.block_for_received_chunk(buffer);
         for (std::size_t i = 0; i < length; ++i) {
-            if (parser.parse(buffer[i], robot::imu_data) == imu::FrameType::Angle) {
-                robot::chassis.updateYaw(robot::imu_data, rtos::now_ms());
-            }
+            parser.parse(buffer[i], robot::imu_data);
         }
     }
 }, 1024 * 4, rtos::TaskPriority::High> imu_rx_task;
