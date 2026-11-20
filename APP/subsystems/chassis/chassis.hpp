@@ -41,7 +41,8 @@ public:
     bool autoMode() const { return auto_mode_; }
 
     /// @brief 更新遥控器值。
-    void updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a, bool switch_d);
+    void updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a,
+                           bool switch_d, bool channel10);
 
 private:
     [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;
@@ -60,8 +61,6 @@ private:
     void manualControl(float dt);
     /// @brief 急停：清零目标速度与外环 PID 状态（内环目标归零）。
     void stopVelocity();
-    /// @brief 在世界系中保持机体系速度方向不变（航向变化时旋转速度向量）。
-    void keepVelocityDirection();
     /// @brief 机体系速度 → 世界系速度（按逻辑航向旋转）。
     void bodyToWorld(float body_vx, float body_vy, float& world_vx, float& world_vy) const;
     /// @brief 世界系速度 → 机体系速度。
@@ -99,6 +98,9 @@ private:
     float vx_world_cur_{0.0f};
     float vy_world_cur_{0.0f};
 
+    // 机体系目标线速度（有头模式真源，每周期转世界系）。
+    float vx_body_{0.0f};
+    float vy_body_{0.0f};
     // 机体系实时线速度（正运动学）。
     float vx_body_cur_{0.0f};
     float vy_body_cur_{0.0f};
@@ -117,6 +119,7 @@ private:
     // 模式与计时。
     bool headless_mode_{false};
     bool auto_mode_{false};
+    bool velocity_mode_{false};  // 手动速度模式（false = 加速度模式）。
     std::uint32_t last_tick_{0};
     bool first_tick_{true};
 
@@ -128,6 +131,7 @@ private:
     float remote_right_x_{0.0f};
     bool remote_switch_a_{false};
     bool remote_switch_d_{false};
+    bool channel10_prev_{false};  // CH10 上一状态（上升沿切换速度/加速度模式）。
 };
 
 }  // namespace robot

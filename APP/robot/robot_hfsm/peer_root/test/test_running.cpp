@@ -32,7 +32,8 @@ void robot::TestRunning::update(robot::Control& control) {
     // 底盘遥控器值更新
     chassis.updateRemoteValue(remote.online(),
         remote.left_x(), remote.left_y(), remote.right_x(),
-        remote.switch_a() == 2000, remote.switch_d() == 2000);
+        remote.switch_a() == 2000, remote.switch_d() == 2000,
+        remote.channel(9) == 2000);  // CH10 = 速度/加速度模式切换
 
     // EB: end
 }

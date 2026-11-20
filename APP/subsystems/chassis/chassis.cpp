@@ -95,12 +95,11 @@ void Chassis::setAutoMode(bool auto_mode) {
         resetYawBias();  // 以当前航向同步世界系基准。
     }
     // 切换模式时复位外环 PID。
-    vx_pid_.init();
-    vy_pid_.init();
-    omega_pid_.init();
+    stopVelocity();
 }
 
-void Chassis::updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a, bool switch_d) {
+void Chassis::updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a,
+                                bool switch_d, bool channel10) {
     taskENTER_CRITICAL();
     remote_online_ = online;
     remote_left_x_ = left_x;
@@ -108,15 +107,23 @@ void Chassis::updateRemoteValue(bool online, float left_x, float left_y, float r
     remote_right_x_ = right_x;
     remote_switch_a_ = switch_a;
     remote_switch_d_ = switch_d;
+    // CH10 切换开关：上升沿翻转速度/加速度模式，进入速度模式时加速度归零。
+    if (channel10 && !channel10_prev_) {
+        velocity_mode_ = !velocity_mode_;
+        if (velocity_mode_) {
+            stopVelocity();
+        }
+    }
+    channel10_prev_ = channel10;
     taskEXIT_CRITICAL();
 }
 
 void Chassis::onRequestReset() noexcept {
     resetYawBias();
+    taskENTER_CRITICAL();
     headless_mode_ = false;
-    vx_world_ = 0.0f;
-    vy_world_ = 0.0f;
-    omega_target_ = 0.0f;
+    taskEXIT_CRITICAL();
+    stopVelocity();
 }
 
 void Chassis::receiveVelocityCommand() {
@@ -142,13 +149,6 @@ void Chassis::forwardKinematics() {
     vy_body_cur_ = (u_fl + u_rl - u_fr - u_rr) * k;
 }
 
-void Chassis::keepVelocityDirection() {
-    const float c = std::cos(imu_.yaw_imu - imu_.last_yaw_imu);
-    const float s = std::sin(imu_.yaw_imu - imu_.last_yaw_imu);
-    vx_world_ = c * vx_world_ - s * vy_world_;
-    vy_world_ = s * vx_world_ + c * vy_world_;
-}
-
 void Chassis::bodyToWorld(float body_vx, float body_vy, float& world_vx, float& world_vy) const {
     const float c = std::cos(yaw_);
     const float s = std::sin(yaw_);
@@ -166,6 +166,8 @@ void Chassis::worldToBody(float world_vx, float world_vy, float& body_vx, float&
 void Chassis::stopVelocity() {
     vx_world_ = 0.0f;
     vy_world_ = 0.0f;
+    vx_body_ = 0.0f;
+    vy_body_ = 0.0f;
     omega_target_ = 0.0f;
     vx_pid_.init();
     vy_pid_.init();
@@ -178,41 +180,56 @@ void Chassis::manualControl(float dt) {
         return;
     }
 
-    // 左摇杆（机体系加速度）；右摇杆（角加速度，仅在 omega 映射处取反一次）。
-    const float stick_x = remote_left_x_ * kLinearAccel;
-    const float stick_y = remote_left_y_ * kLinearAccel;
-    const float alpha = -remote_right_x_ * kAngularAccel;
+    // 左摇杆（机体系）；右摇杆（角速度，仅在 omega 映射处取反一次）。
+    const float stick_x = remote_left_x_;
+    const float stick_y = remote_left_y_;
+    const float stick_omega = -remote_right_x_;
 
-    // 无头模式（SwA）：切换摇杆映射；由有头转无头时重定世界系基准。
+    // 无头模式（SwA）：由有头转无头时重定世界系基准。
     const bool headless = remote_switch_a_;
-    
-    // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零（清空外环 PID）。
-    if (remote_switch_d_) {
-        stopVelocity();
-    }
-
-    // 进入无头模式，设置当前航向为基准坐标航向。
     if (headless && !headless_mode_) {
         resetYawBias();
     }
     headless_mode_ = headless;
 
-    // 摇杆 → 世界系加速度（无头直接输出，有头先转世界系）。
-    float ax_world;
-    float ay_world;
-    if (headless_mode_) {  // 无头模式：摇杆直接映射到世界系。
-        ax_world = stick_x;
-        ay_world = stick_y;
-    } else {  // 有头模式：摇杆映射到机体系，旋转到世界系；同时目标速度也旋转。
-        bodyToWorld(stick_x, stick_y, ax_world, ay_world);
-        keepVelocityDirection();  // 保持机体系速度方向不变（航向变化时旋转速度向量）。
+    // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零（清空外环 PID）。
+    if (remote_switch_d_) {
+        stopVelocity();
+        return;
     }
 
-    // 积分得到世界系目标线速度 + 角速度目标。
-    vx_world_ = std::clamp(vx_world_ + ax_world * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
-    vy_world_ = std::clamp(vy_world_ + ay_world * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
-    omega_target_ = std::clamp(omega_target_ + alpha * dt, -kMaxAngularSpeed, kMaxAngularSpeed);
+    // 角速度：速度模式直接设定，加速度模式积分（不分头）。
+    if (velocity_mode_) {
+        omega_target_ = stick_omega * kMaxAngularSpeed;
+    } else {
+        omega_target_ = std::clamp(omega_target_ + stick_omega * kAngularAccel * dt,
+                                   -kMaxAngularSpeed, kMaxAngularSpeed);
+    }
 
+    if (headless_mode_) {
+        // 无头：摇杆直接映射到世界系。
+        if (velocity_mode_) {
+            vx_world_ = stick_x * kMaxLinearSpeed;
+            vy_world_ = stick_y * kMaxLinearSpeed;
+        } else {
+            vx_world_ = std::clamp(vx_world_ + stick_x * kLinearAccel * dt, -kMaxLinearSpeed,
+                                   kMaxLinearSpeed);
+            vy_world_ = std::clamp(vy_world_ + stick_y * kLinearAccel * dt, -kMaxLinearSpeed,
+                                   kMaxLinearSpeed);
+        }
+    } else {
+        // 有头：机体系目标速度，每周期用当前航向转世界系（速度天然跟车头）。
+        if (velocity_mode_) {
+            vx_body_ = stick_x * kMaxLinearSpeed;
+            vy_body_ = stick_y * kMaxLinearSpeed;
+        } else {
+            vx_body_ = std::clamp(vx_body_ + stick_x * kLinearAccel * dt, -kMaxLinearSpeed,
+                                  kMaxLinearSpeed);
+            vy_body_ = std::clamp(vy_body_ + stick_y * kLinearAccel * dt, -kMaxLinearSpeed,
+                                  kMaxLinearSpeed);
+        }
+        bodyToWorld(vx_body_, vy_body_, vx_world_, vy_world_);
+    }
 }
 
 float Chassis::tickDelta() {
@@ -225,9 +242,7 @@ float Chassis::tickDelta() {
 
 void Chassis::onPrepare() {
     for (auto* pid : pids_) pid->init();
-    vx_pid_.init();
-    vy_pid_.init();
-    omega_pid_.init();
+    stopVelocity();
 }
 
 Subsystem::Readiness Chassis::onCheckReadiness() {
@@ -235,9 +250,7 @@ Subsystem::Readiness Chassis::onCheckReadiness() {
 }
 
 Subsystem::Readiness Chassis::onStandby(bool) {
-    vx_world_ = 0.0f;
-    vy_world_ = 0.0f;
-    omega_target_ = 0.0f;
+    stopVelocity();
     return Readiness::Ready;
 }
 
@@ -261,7 +274,7 @@ bool Chassis::onRun(bool enabled) {
         if (auto_mode_) {
             // 全自动模式：目标/实时速度均从话题队列获取（世界系）。
             receiveVelocityCommand();
-        } else {
+        } else if (remote_enabled_) {
             // 手动模式：摇杆积分 → 目标；正运动学 → 实时。
             manualControl(dt);
             forwardKinematics();
