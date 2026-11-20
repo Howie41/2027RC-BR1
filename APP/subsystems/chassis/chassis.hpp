@@ -73,45 +73,57 @@ private:
     PidController fr_pid_{
         "chassis_fr_speed",
         {
-            .kp = 1146.0f,
-            .ki = 68.8f,
+            .kp = 900.0f,
+            .ki = 520.0f,
             .kd = 0.0f,
             .max_out = 20000.0f,
             .integral_limit = 5000.0f,
-            .improvement = {1U << PidController::integral_limit},
+            .ff_j = 5.0f,   // 惯量前馈 (mA/(rad/s²))
+            .ff_b = 20.0f,  // 阻尼前馈 (mA/(rad/s))
+            .improvement = {1U << PidController::integral_limit |
+                            1U << PidController::feedforward_control},
         }
     };
     PidController fl_pid_{
         "chassis_fl_speed",
         {
-            .kp = 1146.0f,
-            .ki = 68.8f,
+            .kp = 900.0f,
+            .ki = 520.0f,
             .kd = 0.0f,
             .max_out = 20000.0f,
             .integral_limit = 5000.0f,
-            .improvement = {1U << PidController::integral_limit},
+            .ff_j = 5.0f,   // 惯量前馈 (mA/(rad/s²))
+            .ff_b = 20.0f,  // 阻尼前馈 (mA/(rad/s))
+            .improvement = {1U << PidController::integral_limit |
+                            1U << PidController::feedforward_control},
         }
     };
     PidController rl_pid_{
         "chassis_rl_speed",
         {
-            .kp = 1146.0f,
-            .ki = 68.8f,
+            .kp = 900.0f,
+            .ki = 520.0f,
             .kd = 0.0f,
             .max_out = 20000.0f,
             .integral_limit = 5000.0f,
-            .improvement = {1U << PidController::integral_limit},
+            .ff_j = 5.0f,   // 惯量前馈 (mA/(rad/s²))
+            .ff_b = 20.0f,  // 阻尼前馈 (mA/(rad/s))
+            .improvement = {1U << PidController::integral_limit |
+                            1U << PidController::feedforward_control},
         }
     };
     PidController rr_pid_{
         "chassis_rr_speed",
         {
-            .kp = 1146.0f,
-            .ki = 68.8f,
+            .kp = 900.0f,
+            .ki = 520.0f,
             .kd = 0.0f,
             .max_out = 20000.0f,
             .integral_limit = 5000.0f,
-            .improvement = {1U << PidController::integral_limit},
+            .ff_j = 5.0f,   // 惯量前馈 (mA/(rad/s²))
+            .ff_b = 20.0f,  // 阻尼前馈 (mA/(rad/s))
+            .improvement = {1U << PidController::integral_limit |
+                            1U << PidController::feedforward_control},
         }
     };
     PidController* pids_[4]{};
