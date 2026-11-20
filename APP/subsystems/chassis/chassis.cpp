@@ -19,9 +19,6 @@ constexpr float kSqrt2 = 1.41421356f;
 constexpr float kLinearToWheel = 1.0f / (kSqrt2 * kWheelRadius);
 constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheelRadius);
 
-// 旧框架 PID 增益按 deg/s 标定，换算到 rad/s。
-constexpr float kDegPerRad = 57.29578f;
-
 // 摇杆满杆时的加速度（增量）。
 constexpr float kLinearAccel = 6.0f;   // 左摇杆满杆线加速度 (m/s²)
 constexpr float kAngularAccel = 3.14159265f;  // 右摇杆满杆角加速度 (rad/s²)
@@ -30,42 +27,9 @@ constexpr float kAngularAccel = 3.14159265f;  // 右摇杆满杆角加速度 (ra
 Chassis::Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
                  C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
     : motors_{&fr, &fl, &rl, &rr},
-      fr_pid_("chassis_fr_speed"),
-      fl_pid_("chassis_fl_speed"),
-      rl_pid_("chassis_rl_speed"),
-      rr_pid_("chassis_rr_speed"),
       pids_{&fr_pid_, &fl_pid_, &rl_pid_, &rr_pid_},
       imu_{imu},
       velocity_target_{velocity_command_msg} {
-    const PidController::Config config{
-        .kp = 20.0f * kDegPerRad,   // 旧 20 mA/(deg/s)，换算到 rad/s
-        .ki = 1.2f * kDegPerRad,    // 旧 2 mA/(deg/s)，换算到 rad/s
-        .kd = 0.0f,
-        .max_out = 20000.0f,
-        .integral_limit = 5000.0f,
-        .improvement = {1U << PidController::integral_limit},
-    };
-    for (auto* pid : pids_) pid->configure(config);
-
-    // 外环线速度 PID（增量式）。
-    const PidController::Config outer_linear{
-        .kp = 1.0f,
-        .ki = 0.5f,
-        .kd = 0.0f,
-        .max_out = kMaxLinearSpeed,
-        .improvement = {1U << PidController::increment_of_out},
-    };
-    vx_pid_.configure(outer_linear);
-    vy_pid_.configure(outer_linear);
-
-    const PidController::Config outer_angular{
-        .kp = 1.0f,
-        .ki = 0.5f,
-        .kd = 0.0f,
-        .max_out = kMaxAngularSpeed,
-        .improvement = {1U << PidController::increment_of_out},
-    };
-    omega_pid_.configure(outer_angular);
 }
 
 bool Chassis::all_online() const {

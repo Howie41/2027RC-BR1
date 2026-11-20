@@ -70,23 +70,83 @@ private:
 
     // 底盘电机及其内环转速 PID。
     C620Motor* motors_[4]{};
-    PidController fr_pid_;
-    PidController fl_pid_;
-    PidController rl_pid_;
-    PidController rr_pid_;
+    PidController fr_pid_{
+        "chassis_fr_speed",
+        {
+            .kp = 1146.0f,
+            .ki = 68.8f,
+            .kd = 0.0f,
+            .max_out = 20000.0f,
+            .integral_limit = 5000.0f,
+            .improvement = {1U << PidController::integral_limit},
+        }
+    };
+    PidController fl_pid_{
+        "chassis_fl_speed",
+        {
+            .kp = 1146.0f,
+            .ki = 68.8f,
+            .kd = 0.0f,
+            .max_out = 20000.0f,
+            .integral_limit = 5000.0f,
+            .improvement = {1U << PidController::integral_limit},
+        }
+    };
+    PidController rl_pid_{
+        "chassis_rl_speed",
+        {
+            .kp = 1146.0f,
+            .ki = 68.8f,
+            .kd = 0.0f,
+            .max_out = 20000.0f,
+            .integral_limit = 5000.0f,
+            .improvement = {1U << PidController::integral_limit},
+        }
+    };
+    PidController rr_pid_{
+        "chassis_rr_speed",
+        {
+            .kp = 1146.0f,
+            .ki = 68.8f,
+            .kd = 0.0f,
+            .max_out = 20000.0f,
+            .integral_limit = 5000.0f,
+            .improvement = {1U << PidController::integral_limit},
+        }
+    };
     PidController* pids_[4]{};
 
-    // 外部引用。
-    imu::Data& imu_;
-    rtos::Subscriber<VelocityCommand, 4>& velocity_target_;
-
-    // 轮速实测。
-    float measured_speed_[4]{};
-
     // 外环线/角速度 PID（增量式）。
-    PidController vx_pid_;
-    PidController vy_pid_;
-    PidController omega_pid_;
+    PidController vx_pid_{
+        "chassis_vx",
+        {
+            .kp = 1.0f,
+            .ki = 0.5f,
+            .kd = 0.0f,
+            .max_out = kMaxLinearSpeed,
+            .improvement = {1U << PidController::increment_of_out},
+        }
+    };
+    PidController vy_pid_{
+        "chassis_vy",
+        {
+            .kp = 1.0f,
+            .ki = 0.5f,
+            .kd = 0.0f,
+            .max_out = kMaxLinearSpeed,
+            .improvement = {1U << PidController::increment_of_out},
+        }
+    };
+    PidController omega_pid_{
+        "chassis_omega",
+        {
+            .kp = 1.0f,
+            .ki = 0.5f,
+            .kd = 0.0f,
+            .max_out = kMaxAngularSpeed,
+            .improvement = {1U << PidController::increment_of_out},
+        }
+    };
 
     // 世界系：基准航向 + 逻辑航向。
     float yaw_bias_{0.0f};
@@ -132,6 +192,14 @@ private:
     bool remote_switch_a_{false};
     bool remote_switch_d_{false};
     bool channel10_prev_{false};  // CH10 上一状态（上升沿切换速度/加速度模式）。
+
+    // 外部引用。
+    imu::Data& imu_;
+    rtos::Subscriber<VelocityCommand, 4>& velocity_target_;
+
+    // 轮速实测。
+    float measured_speed_[4]{};
+
 };
 
 }  // namespace robot
