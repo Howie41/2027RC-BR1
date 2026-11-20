@@ -120,31 +120,28 @@ private:
     PidController vx_pid_{
         "chassis_vx",
         {
-            .kp = 1.0f,
-            .ki = 0.5f,
+            .kp = 2.5f,
+            .ki = 25.0f,
             .kd = 0.0f,
             .max_out = kMaxLinearSpeed,
-            .improvement = {1U << PidController::increment_of_out},
         }
     };
     PidController vy_pid_{
         "chassis_vy",
         {
-            .kp = 1.0f,
-            .ki = 0.5f,
+            .kp = 2.5f,
+            .ki = 25.0f,
             .kd = 0.0f,
             .max_out = kMaxLinearSpeed,
-            .improvement = {1U << PidController::increment_of_out},
         }
     };
     PidController omega_pid_{
         "chassis_omega",
         {
-            .kp = 1.0f,
-            .ki = 0.5f,
+            .kp = 2.5f,
+            .ki = 25.0f,
             .kd = 0.0f,
             .max_out = kMaxAngularSpeed,
-            .improvement = {1U << PidController::increment_of_out},
         }
     };
 
