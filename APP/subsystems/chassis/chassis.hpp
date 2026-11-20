@@ -30,8 +30,7 @@ public:
 
     /// @brief remote 用于读取摇杆/禁用遥控；imu 提供 yaw_imu/omega_imu；velocity_command_msg 接收上位机指令；
     ///        fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
-    Chassis(remote::Remote& remote, imu::Data& imu,
-            rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
+    Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
             C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
 
     /// @brief 以当前 imu 航向为世界系基准（yaw_bias = yaw_imu）。
@@ -40,6 +39,9 @@ public:
     /// @brief 设置全自动模式：自动模式禁用遥控，速度指令从话题队列获取。
     void setAutoMode(bool auto_mode);
     bool autoMode() const { return auto_mode_; }
+
+    /// @brief 更新遥控器值。
+    void updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a, bool switch_d);
 
 private:
     [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;
@@ -58,6 +60,8 @@ private:
     void manualControl(float dt);
     /// @brief 急停：清零目标速度与外环 PID 状态（内环目标归零）。
     void stopVelocity();
+    /// @brief 在世界系中保持机体系速度方向不变（航向变化时旋转速度向量）。
+    void keepVelocityDirection();
     /// @brief 机体系速度 → 世界系速度（按逻辑航向旋转）。
     void bodyToWorld(float body_vx, float body_vy, float& world_vx, float& world_vy) const;
     /// @brief 世界系速度 → 机体系速度。
@@ -74,7 +78,6 @@ private:
     PidController* pids_[4]{};
 
     // 外部引用。
-    remote::Remote& remote_;
     imu::Data& imu_;
     rtos::Subscriber<VelocityCommand, 4>& velocity_target_;
 
@@ -116,6 +119,15 @@ private:
     bool auto_mode_{false};
     std::uint32_t last_tick_{0};
     bool first_tick_{true};
+
+    // 遥控器值
+    bool remote_enabled_{true};
+    bool remote_online_{false};
+    float remote_left_x_{0.0f};
+    float remote_left_y_{0.0f};
+    float remote_right_x_{0.0f};
+    bool remote_switch_a_{false};
+    bool remote_switch_d_{false};
 };
 
 }  // namespace robot

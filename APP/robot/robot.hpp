@@ -55,7 +55,7 @@ inline C620Motor chassis_rr{can1_c620, 4};
 inline remote::Remote remote{};
 inline imu::Data imu_data{};
 inline rtos::Subscriber<VelocityCommand, 4> velocity_command_msg{"velocity_command_msg"};
-inline Chassis chassis{remote, imu_data, velocity_command_msg, chassis_fr, chassis_fl, chassis_rl,
+inline Chassis chassis{imu_data, velocity_command_msg, chassis_fr, chassis_fl, chassis_rl,
                        chassis_rr};
 
 // EB: 这里声明整车的外设和子系统（机构）

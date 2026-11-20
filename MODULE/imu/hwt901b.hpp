@@ -12,6 +12,7 @@ enum class FrameType : std::uint8_t { None, Gyro, Angle };
 
 /// @brief HWT901B 解析后的数据（仅航向与角速度，机体坐标系 z 轴）。
 struct Data {
+    float last_yaw_imu{0.0f}; // 上次航向 (rad)
     float yaw_imu{0.0f};    // 航向 (rad)
     float omega_imu{0.0f};  // 角速度 z (rad/s)
 };
@@ -50,15 +51,17 @@ inline FrameType Parser::parse(std::uint8_t byte, Data& data) {
     };
 
     switch (buffer_[1]) {
-    case 0x52:  // 角速度
-        data.omega_imu = static_cast<float>(i16(6)) * kGyroScale;
-        return FrameType::Gyro;
-    case 0x53:  // 角度
-        data.yaw_imu = static_cast<float>(i16(6)) * kAngleScale;
-        return FrameType::Angle;
-    default:
-        return FrameType::None;
+        case 0x52:  // 角速度
+            data.omega_imu = static_cast<float>(i16(6)) * kGyroScale;
+            return FrameType::Gyro;
+        case 0x53:  // 角度
+            data.last_yaw_imu = data.yaw_imu;
+            data.yaw_imu = static_cast<float>(i16(6)) * kAngleScale;
+            return FrameType::Angle;
+        default:
+            return FrameType::None;
     }
+
 }
 
 }  // namespace imu

@@ -23,12 +23,11 @@ constexpr float kRotationToWheel = (kHalfLength + kHalfWidth) / (kSqrt2 * kWheel
 constexpr float kDegPerRad = 57.29578f;
 
 // 摇杆满杆时的加速度（增量）。
-constexpr float kLinearAccel = 5.0f;   // 左摇杆满杆线加速度 (m/s²)
-constexpr float kAngularAccel = 3.0f;  // 右摇杆满杆角加速度 (rad/s²)
+constexpr float kLinearAccel = 6.0f;   // 左摇杆满杆线加速度 (m/s²)
+constexpr float kAngularAccel = 3.14159265f;  // 右摇杆满杆角加速度 (rad/s²)
 }  // namespace
 
-Chassis::Chassis(remote::Remote& remote, imu::Data& imu,
-                 rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
+Chassis::Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
                  C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
     : motors_{&fr, &fl, &rl, &rr},
       fr_pid_("chassis_fr_speed"),
@@ -36,7 +35,6 @@ Chassis::Chassis(remote::Remote& remote, imu::Data& imu,
       rl_pid_("chassis_rl_speed"),
       rr_pid_("chassis_rr_speed"),
       pids_{&fr_pid_, &fl_pid_, &rl_pid_, &rr_pid_},
-      remote_{remote},
       imu_{imu},
       velocity_target_{velocity_command_msg} {
     const PidController::Config config{
@@ -92,7 +90,7 @@ void Chassis::resetYawBias() noexcept {
 
 void Chassis::setAutoMode(bool auto_mode) {
     auto_mode_ = auto_mode;
-    remote_.set_enabled(!auto_mode);  // 全自动模式禁用遥控器。
+    remote_enabled_ = !auto_mode;  // 全自动模式禁用遥控器。
     if (auto_mode) {
         resetYawBias();  // 以当前航向同步世界系基准。
     }
@@ -100,6 +98,17 @@ void Chassis::setAutoMode(bool auto_mode) {
     vx_pid_.init();
     vy_pid_.init();
     omega_pid_.init();
+}
+
+void Chassis::updateRemoteValue(bool online, float left_x, float left_y, float right_x, bool switch_a, bool switch_d) {
+    taskENTER_CRITICAL();
+    remote_online_ = online;
+    remote_left_x_ = left_x;
+    remote_left_y_ = left_y;
+    remote_right_x_ = right_x;
+    remote_switch_a_ = switch_a;
+    remote_switch_d_ = switch_d;
+    taskEXIT_CRITICAL();
 }
 
 void Chassis::onRequestReset() noexcept {
@@ -133,6 +142,13 @@ void Chassis::forwardKinematics() {
     vy_body_cur_ = (u_fl + u_rl - u_fr - u_rr) * k;
 }
 
+void Chassis::keepVelocityDirection() {
+    const float c = std::cos(imu_.yaw_imu - imu_.last_yaw_imu);
+    const float s = std::sin(imu_.yaw_imu - imu_.last_yaw_imu);
+    vx_world_ = c * vx_world_ - s * vy_world_;
+    vy_world_ = s * vx_world_ + c * vy_world_;
+}
+
 void Chassis::bodyToWorld(float body_vx, float body_vy, float& world_vx, float& world_vy) const {
     const float c = std::cos(yaw_);
     const float s = std::sin(yaw_);
@@ -157,18 +173,25 @@ void Chassis::stopVelocity() {
 }
 
 void Chassis::manualControl(float dt) {
-    if (!remote_.online()) {
+    if (!remote_online_) {
         stopVelocity();
         return;
     }
 
     // 左摇杆（机体系加速度）；右摇杆（角加速度，仅在 omega 映射处取反一次）。
-    const float stick_x = remote_.left_x() * kLinearAccel;
-    const float stick_y = remote_.left_y() * kLinearAccel;
-    const float alpha = -remote_.right_x() * kAngularAccel;
+    const float stick_x = remote_left_x_ * kLinearAccel;
+    const float stick_y = remote_left_y_ * kLinearAccel;
+    const float alpha = -remote_right_x_ * kAngularAccel;
 
     // 无头模式（SwA）：切换摇杆映射；由有头转无头时重定世界系基准。
-    const bool headless = remote_.switch_a() == 2000;
+    const bool headless = remote_switch_a_;
+    
+    // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零（清空外环 PID）。
+    if (remote_switch_d_) {
+        stopVelocity();
+    }
+
+    // 进入无头模式，设置当前航向为基准坐标航向。
     if (headless && !headless_mode_) {
         resetYawBias();
     }
@@ -177,25 +200,19 @@ void Chassis::manualControl(float dt) {
     // 摇杆 → 世界系加速度（无头直接输出，有头先转世界系）。
     float ax_world;
     float ay_world;
-    if (headless_mode_) {
+    if (headless_mode_) {  // 无头模式：摇杆直接映射到世界系。
         ax_world = stick_x;
         ay_world = stick_y;
-    } else {
+    } else {  // 有头模式：摇杆映射到机体系，旋转到世界系；同时目标速度也旋转。
         bodyToWorld(stick_x, stick_y, ax_world, ay_world);
+        keepVelocityDirection();  // 保持机体系速度方向不变（航向变化时旋转速度向量）。
     }
 
     // 积分得到世界系目标线速度 + 角速度目标。
-    vx_world_ += ax_world * dt;
-    vy_world_ += ay_world * dt;
-    omega_target_ += alpha * dt;
-    vx_world_ = std::clamp(vx_world_, -kMaxLinearSpeed, kMaxLinearSpeed);
-    vy_world_ = std::clamp(vy_world_, -kMaxLinearSpeed, kMaxLinearSpeed);
-    omega_target_ = std::clamp(omega_target_, -kMaxAngularSpeed, kMaxAngularSpeed);
+    vx_world_ = std::clamp(vx_world_ + ax_world * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
+    vy_world_ = std::clamp(vy_world_ + ay_world * dt, -kMaxLinearSpeed, kMaxLinearSpeed);
+    omega_target_ = std::clamp(omega_target_ + alpha * dt, -kMaxAngularSpeed, kMaxAngularSpeed);
 
-    // SwD（通道8，0 基下标 7）拨到 2000 = 速度强行归零（清空外环 PID）。
-    if (remote_.switch_d() == 2000) {
-        stopVelocity();
-    }
 }
 
 float Chassis::tickDelta() {

@@ -29,6 +29,11 @@ void robot::TestRunning::update(robot::Control& control) {
 
     // EB: 这里写测试业务逻辑
 
+    // 底盘遥控器值更新
+    chassis.updateRemoteValue(remote.online(),
+        remote.left_x(), remote.left_y(), remote.right_x(),
+        remote.switch_a() == 2000, remote.switch_d() == 2000);
+
     // EB: end
 }
 
