@@ -11,7 +11,7 @@ namespace remote {
 /// @brief i-Bus 遥控器消息中心：由接收任务喂入，其它任务读取摇杆与开关。
 class Remote {
 public:
-    static constexpr float kDeadband = 0.08f;
+    static constexpr float kDeadband = 0.05f;
     static constexpr std::uint32_t kTimeoutMs = 100;
 
     /// @brief 喂入一帧解析结果，刷新在线时间戳。

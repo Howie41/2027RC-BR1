@@ -15,7 +15,7 @@ rtos::Task<"imu_rx", [] {
         const auto length = robot::uart8_port.block_for_received_chunk(buffer);
         for (std::size_t i = 0; i < length; ++i) {
             if (parser.parse(buffer[i], robot::imu_data) == imu::FrameType::Angle) {
-                robot::world_frame.predict(robot::imu_data, rtos::now_ms());
+                robot::chassis.updateYaw(robot::imu_data, rtos::now_ms());
             }
         }
     }

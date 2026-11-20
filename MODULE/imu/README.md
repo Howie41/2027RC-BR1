@@ -22,3 +22,15 @@ if (type == imu::FrameType::Angle) {
 - `0x53` = 角度（roll/pitch/yaw，rad）
 
 量程按 WITMotion 默认：加速度 `÷32768×16g`、角速度 `÷32768×2000°/s`、角度 `÷32768×180°`。
+
+## YawEstimator
+
+世界航向估计：`yaw = imu.yaw - 偏置`，首次 `predict()` 以当前 yaw 为基准，`reset()` 后重新捕获偏置。
+
+```cpp
+#include "yaw.hpp"
+
+imu::YawEstimator heading;
+heading.predict(data, now_ms);  // 每帧角度数据到达时调用
+heading.reset();                // 以当前方向为基准
+```

@@ -17,8 +17,6 @@
 #include "chassis.hpp"
 #include "remote.hpp"
 #include "hwt901b.hpp"
-#include "odometry.hpp"
-#include "headless_mode.hpp"
 #include "subsystem.hpp"
 
 #include <array>
@@ -55,10 +53,8 @@ inline C620Motor chassis_fl{can1_c620, 2};
 inline C620Motor chassis_rl{can1_c620, 3};
 inline C620Motor chassis_rr{can1_c620, 4};
 inline remote::Remote remote{};
-inline odometry::Estimator world_frame{};
-inline rtos::Subscriber<VelocityCommand, 4> velocity_target{"velocity_target"};
-inline Chassis chassis{remote, world_frame, velocity_target, chassis_fr, chassis_fl, chassis_rl,
-                       chassis_rr};
+inline rtos::Subscriber<VelocityCommand, 4> velocity_command_msg{"velocity_command_msg"};
+inline Chassis chassis{remote, velocity_command_msg, chassis_fr, chassis_fl, chassis_rl, chassis_rr};
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
@@ -74,7 +70,6 @@ DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart4_port{huart4, {}};
 // IMU（HWT901B，UART8，9600 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart8_port{huart8, {}};
 inline imu::Data imu_data{};
-inline HeadlessMode headless{};
 
 DMA_BUFFER_BSS inline UartPortDma<32, 32, 32 * 2> uart2_port{huart2, {}};
 inline Rs485Bus rs4851_bus{uart2_port};
