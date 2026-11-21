@@ -14,7 +14,7 @@ rtos::Task<"imu_rx", [] {
     while (true) {
         const auto length = robot::uart8_port.block_for_received_chunk(buffer);
         for (std::size_t i = 0; i < length; ++i) {
-            parser.parse(buffer[i], robot::imu_data);
+            parser.feed(buffer[i], robot::imu_data);
         }
     }
 }, 1024 * 4, rtos::TaskPriority::High> imu_rx_task;

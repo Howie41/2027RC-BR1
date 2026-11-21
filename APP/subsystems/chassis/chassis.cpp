@@ -32,19 +32,28 @@ Chassis::Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_
       velocity_target_{velocity_command_msg} {
 }
 
-bool Chassis::all_online() const {
+bool Chassis::isOnline(FaultInfo& online_info) const {
     taskENTER_CRITICAL();
     bool online = true;
-    for (const auto* motor : motors_) online &= motor->is_online();
-    taskEXIT_CRITICAL();
-    return online;
-}
-
-bool Chassis::isOnline(FaultInfo& online_info) const {
-    const bool online = all_online();
-    if (!online) {
-        RECORD_FAULT(online_info, "Chassis motor offline");
+    for (const auto* motor : motors_) {
+        online &= motor->is_online();
+        if (!online) {
+            if (motor == motors_[0]) {
+                RECORD_FAULT(online_info, "Chassis front-right motor offline");
+            } else if (motor == motors_[1]) {
+                RECORD_FAULT(online_info, "Chassis front-left motor offline");
+            } else if (motor == motors_[2]) {
+                RECORD_FAULT(online_info, "Chassis rear-left motor offline");
+            } else if (motor == motors_[3]) {
+                RECORD_FAULT(online_info, "Chassis rear-right motor offline");
+            }
+        }
     }
+    online &= imu_.is_online;
+    if (!online) {
+        RECORD_FAULT(online_info, "Chassis IMU offline");
+    }
+    taskEXIT_CRITICAL();
     return online;
 }
 
@@ -207,10 +216,11 @@ float Chassis::tickDelta() {
 void Chassis::onPrepare() {
     for (auto* pid : pids_) pid->init();
     stopVelocity();
+    tickDelta();  // 初始化计时器。
 }
 
 Subsystem::Readiness Chassis::onCheckReadiness() {
-    return all_online() ? Readiness::Ready : Readiness::Pending;
+    return Readiness::Ready;
 }
 
 Subsystem::Readiness Chassis::onStandby(bool) {

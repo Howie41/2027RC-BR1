@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rtos_utility.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -14,13 +16,16 @@ enum class FrameType : std::uint8_t { None, Gyro, Angle };
 struct Data {
     float yaw_imu{0.0f};    // 航向 (rad)
     float omega_imu{0.0f};  // 角速度 z (rad/s)
+    bool is_online{true};  // 最近 kTimeoutMs 内收到过帧
 };
 
 /// @brief HWT901B 流式解析器：逐字节喂入，收齐 11 字节并校验后更新对应字段。
 class Parser {
 public:
-    /// @brief 喂入一个字节；解析出完整一帧时更新 data 并返回帧类型。
-    FrameType parse(std::uint8_t byte, Data& data);
+    static constexpr std::uint32_t kTimeoutMs = 50;
+
+    /// @brief 喂入一个字节；解析出完整一帧时更新 data 并返回帧类型。刷新在线时间戳。
+    FrameType feed(std::uint8_t byte, Data& data);
 
 private:
     static constexpr std::size_t kFrameLength = 11;
@@ -30,9 +35,15 @@ private:
 
     std::array<std::uint8_t, kFrameLength> buffer_{};
     std::size_t length_{0};
+
+    std::uint32_t last_feed_ms_{0};
+    
 };
 
-inline FrameType Parser::parse(std::uint8_t byte, Data& data) {
+inline FrameType Parser::feed(std::uint8_t byte, Data& data) {
+    last_feed_ms_ = rtos::now_ms();
+    data.is_online = static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
+
     if (length_ == 0 && byte != 0x55) return FrameType::None;
     buffer_[length_++] = byte;
     if (length_ < kFrameLength) return FrameType::None;

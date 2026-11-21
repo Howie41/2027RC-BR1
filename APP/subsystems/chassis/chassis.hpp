@@ -52,7 +52,6 @@ private:
     [[nodiscard]] Readiness onStandby(bool entering) override;
     [[nodiscard]] bool onRun(bool enabled) override;
 
-    bool all_online() const;
     /// @brief 自动模式：从话题队列接收目标/实时速度（世界系）。
     void receiveVelocityCommand();
     /// @brief 手动模式：轮速正运动学 → 机体系实时线速度。
