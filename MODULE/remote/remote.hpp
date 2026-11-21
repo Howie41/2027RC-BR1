@@ -6,12 +6,12 @@
 #include <array>
 #include <cstdint>
 
-namespace robot {
+namespace remote {
 
 /// @brief i-Bus 遥控器消息中心：由接收任务喂入，其它任务读取摇杆与开关。
 class Remote {
 public:
-    static constexpr float kDeadband = 0.08f;
+    static constexpr float kDeadband = 0.04f;
     static constexpr std::uint32_t kTimeoutMs = 100;
 
     /// @brief 喂入一帧解析结果，刷新在线时间戳。
@@ -44,9 +44,13 @@ public:
     /// @brief 通用通道值（0 基下标）。
     std::uint16_t channel(int index) const { return channels_[index]; }
 
-    /// @brief 最近 kTimeoutMs 内收到过帧则在线。
+    /// @brief 启用/禁用遥控器（全自动模式可禁用）。
+    void set_enabled(bool enabled) { enabled_ = enabled; }
+
+    /// @brief 启用且最近 kTimeoutMs 内收到过帧则在线。
     bool online() const {
-        return static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
+        return enabled_ &&
+               static_cast<std::uint32_t>(rtos::now_ms() - last_feed_ms_) < kTimeoutMs;
     }
 
 private:
@@ -55,6 +59,7 @@ private:
         1500, 1500, 1500, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000};
     std::uint32_t last_feed_ms_{0};
     std::uint32_t frames_{0};
+    bool enabled_{true};
 };
 
-}  // namespace robot
+}  // namespace remote
