@@ -298,6 +298,8 @@ auto bytes = CheckedLedFrame::serialize({uint8_t{50}, uint16_t{1000}});
   - 给 `Begin<Payload>` 到 `End<Payload>` 中间的内容加 CRC16 校验，占两个字节。不用自己计算或填写。
 - `Crc<Payload, CrcType::Crc8>`
   - 改用 CRC8，占一个字节。
+- `Crc<Payload, CrcType::Crc16Modbus>`
+  - CRC16/MODBUS，多项式 `0x8005`（反射形式 `0xA001`），初值 `0xFFFF`，输入输出反射，无最终异或；默认低字节先传。
 - `Crc<Payload, CrcType::Crc32Mpeg2>`
   - 改用 CRC32-MPEG2，占四个字节。不能拿其他 CRC32 算法的结果直接替换。
 - `Crc<Payload, CrcType::Crc32Mpeg2WordLe>`

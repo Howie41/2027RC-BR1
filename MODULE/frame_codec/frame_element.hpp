@@ -34,6 +34,7 @@ enum class CrcType : std::uint8_t {
     Crc16,
     Crc32Mpeg2,       ///< 按线路字节顺序计算 CRC32-MPEG2。
     Crc32Mpeg2WordLe, ///< 每四字节组成小端字，按字的最高位先计算，与电机手册一致。
+    Crc16Modbus,      ///< 多项式 0x8005，初值 0xFFFF，输入输出反射，无最终异或。
 };
 
 /// @brief 位字段在字节数组中的打包规则，与完整数值字段的字节序分开定义。
@@ -331,13 +332,15 @@ template <typename RegionTag, CrcType Type = CrcType::Crc16,
 struct Crc {
     static_assert(detail::is_region_tag<RegionTag>, "Crc 要求使用 RegionTag 类型");
     static_assert(Type == CrcType::Crc8 || Type == CrcType::Crc16 ||
-                      Type == CrcType::Crc32Mpeg2 || Type == CrcType::Crc32Mpeg2WordLe,
+                      Type == CrcType::Crc32Mpeg2 || Type == CrcType::Crc32Mpeg2WordLe ||
+                      Type == CrcType::Crc16Modbus,
                   "不支持的 CRC 算法");
 
     using region_tag = RegionTag;
     using value_type = std::conditional_t<
         Type == CrcType::Crc8, std::uint8_t,
-        std::conditional_t<Type == CrcType::Crc16, std::uint16_t, std::uint32_t>>;
+        std::conditional_t<Type == CrcType::Crc16 || Type == CrcType::Crc16Modbus,
+                           std::uint16_t, std::uint32_t>>;
     static constexpr CrcType type = Type;
     static constexpr std::endian byte_order = Order;
     static constexpr std::size_t size() noexcept { return sizeof(value_type); }
@@ -393,6 +396,22 @@ private:
         return crc;
     }
 
+    /// @brief 计算 CRC16/MODBUS，按最低位先输入，空区域返回 0xFFFF。
+    [[nodiscard]]
+    static constexpr std::uint16_t calculate_crc16_modbus(
+        std::span<const std::uint8_t> input) noexcept {
+        std::uint16_t crc = 0xFFFF;
+        for (const auto byte : input) {
+            crc ^= byte;
+            for (std::size_t bit = 0; bit < 8; ++bit) {
+                crc = static_cast<std::uint16_t>((crc & 1U) != 0
+                                                    ? (crc >> 1) ^ 0xA001U
+                                                    : crc >> 1);
+            }
+        }
+        return crc;
+    }
+
     /// @brief 将一个字节按最高位先的顺序计入 CRC32-MPEG2。
     [[nodiscard]]
     static constexpr std::uint32_t update_crc32_mpeg2(std::uint32_t crc, std::uint8_t byte) noexcept {
@@ -439,6 +458,8 @@ private:
             return calculate_crc8(region);
         } else if constexpr (Type == CrcType::Crc16) {
             return calculate_crc16(region);
+        } else if constexpr (Type == CrcType::Crc16Modbus) {
+            return calculate_crc16_modbus(region);
         } else if constexpr (Type == CrcType::Crc32Mpeg2) {
             return calculate_crc32_mpeg2(region);
         } else {
