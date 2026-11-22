@@ -79,10 +79,7 @@ inline const std::array<Subsystem*, 2> subsystems{&chassis, &catch_ground_cube};
 
 // EB: 这里声明你测试时需要用到的外设和子系统（机构）
 // 必须是 subsystems 的子集；测试只等待并准备此集合，其余子系统保持待机。
-// 【s34 无电机绕行，11-19】电机未接，暂空：TestStarting/entryGuard 的电机检测
-// 只遍历本数组，清空即全链放行，阀测试（setValve 无守门）无需电机在线；
-// 接 CAN2 双电机后恢复 {&catch_ground_cube}（s33 修改 2）。
-inline const std::array<Subsystem*, 0> test_subsystems{};
+inline const std::array<Subsystem*, 1> test_subsystems{&catch_ground_cube};
 
 // i-Bus 遥控接收机（UART4，115200 + DMA，仅接收）。
 DMA_BUFFER_BSS inline UartPortDma<0, 64, 128> uart4_port{huart4, {}};

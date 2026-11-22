@@ -68,6 +68,7 @@ rtos::Task<"cgc_test", [] {
     valve_test.reset();
     while (true) {
         valve_test.update();
+        robot::chassis.periodic();
         rtos::delay(10);
     }
 }, 4096, rtos::TaskPriority::Normal> cgc_test_task;
