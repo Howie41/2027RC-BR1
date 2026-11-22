@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <span>
 
-namespace ibus {
+namespace remote {
 
 /// @brief FlySky i-Bus 流式解析器：逐字节喂入，收齐并校验一帧后输出 14 通道。
 class Parser {
@@ -45,4 +45,4 @@ private:
     std::size_t length_{0};
 };
 
-}  // namespace ibus
+}  // namespace remote

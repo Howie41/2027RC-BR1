@@ -1,0 +1,47 @@
+#pragma once
+
+#include "states.hpp"
+#include "subsystem.hpp"
+
+#include <array>
+#include <atomic>
+
+namespace robot {
+
+class TestDevice final : public Subsystem {
+public:
+    bool online{true};
+    bool control_ok{true};
+    bool standby_ready{true};
+    unsigned preparations{0};
+
+private:
+    bool isOnline(FaultInfo& online_info) const override {
+        if (!online) RECORD_FAULT(online_info, "Device offline");
+        return online;
+    }
+    void onPrepare() override { ++preparations; }
+    Readiness onCheckReadiness() override { return Readiness::Ready; }
+    Readiness onStandby(bool) override {
+        return standby_ready ? Readiness::Ready : Readiness::Pending;
+    }
+    bool onRun(bool enabled) override { return !enabled || control_ok; }
+};
+
+inline TestDevice participant;
+inline TestDevice outside;
+inline const std::array<Subsystem*, 2> subsystems{&participant, &outside};
+#ifdef EMPTY_TEST_SET
+inline const std::array<Subsystem*, 0> test_subsystems{};
+#else
+inline const std::array<Subsystem*, 1> test_subsystems{&participant};
+#endif
+
+struct ResetProbe {
+    unsigned resets{0};
+    void reset() { ++resets; }
+};
+inline ResetProbe world_frame;
+inline ResetProbe point_tracker;
+inline ResetProbe headless;
+
