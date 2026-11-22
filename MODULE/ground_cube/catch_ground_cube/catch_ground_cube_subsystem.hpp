@@ -57,7 +57,8 @@ public:
   void  cancelGrab();
 
 protected:
-  [[nodiscard]] bool isOnline() const override;        // 双电机在线检查（临界区内读反馈）
+  [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;  // 双电机在线检查（临界区内读反馈）【s32/s34 修订：与框架基类签名对齐】
+  [[nodiscard]] bool motorsOnline() const;             // 双电机在线检查（isOnline/onCheckReadiness 共用）
   void onRequestReset() noexcept override;             // 冻结升降目标（临界区内，禁阻塞/硬件操作）
   void onPrepare() override;                           // 每次上线一次：PID 配置 + 阀 IO 初始态
   [[nodiscard]] Readiness onCheckReadiness() override; // 在线即就绪（编码器首帧自初始化）

@@ -114,7 +114,12 @@ CubeStatus CatchGroundCubeSubsystem::getStatus() const {
 // =====================================================================
 //  Subsystem 生命周期回调
 // =====================================================================
-bool CatchGroundCubeSubsystem::isOnline() const {
+bool CatchGroundCubeSubsystem::isOnline(FaultInfo& online_info) const {
+  (void)online_info;   // 需要故障详情时可参照 chassis 的写法填充
+  return motorsOnline();
+}
+
+bool CatchGroundCubeSubsystem::motorsOnline() const {
   taskENTER_CRITICAL();
   const bool online = core_.left_motor_.is_online() && core_.right_motor_.is_online();
   taskEXIT_CRITICAL();
@@ -131,7 +136,7 @@ void CatchGroundCubeSubsystem::onPrepare() {
 
 Subsystem::Readiness CatchGroundCubeSubsystem::onCheckReadiness() {
   // 双电机持续在线即认为就绪；编码器累计位置以上电后首帧反馈自动建零
-  return isOnline() ? Readiness::Ready : Readiness::Pending;
+  return motorsOnline() ? Readiness::Ready : Readiness::Pending;
 }
 
 bool CatchGroundCubeSubsystem::onRun(bool enabled) {

@@ -27,6 +27,7 @@
 
 //调试
 #include "catch_ground_cube_subsystem.hpp"
+#include "catch_ground_cube.hpp"
 
 
 namespace robot {
@@ -72,11 +73,14 @@ inline CatchGroundCubeSubsystem catch_ground_cube{catch_motor_left, catch_motor_
 
 // EB: 这里声明整车的外设和子系统（机构）
 // 全部子系统的注册表，也是正式启动集合；Fault 按故障记录选择禁用对象。
-inline const std::array<Subsystem*, 1> subsystems{&chassis};
+inline const std::array<Subsystem*, 2> subsystems{&chassis, &catch_ground_cube};  // 【s34 注册】s33 修改 1（faults 数组按 size() 自动适配）
 
 
 // EB: 这里声明你测试时需要用到的外设和子系统（机构）
 // 必须是 subsystems 的子集；测试只等待并准备此集合，其余子系统保持待机。
+// 【s34 无电机绕行，11-19】电机未接，暂空：TestStarting/entryGuard 的电机检测
+// 只遍历本数组，清空即全链放行，阀测试（setValve 无守门）无需电机在线；
+// 接 CAN2 双电机后恢复 {&catch_ground_cube}（s33 修改 2）。
 inline const std::array<Subsystem*, 0> test_subsystems{};
 
 // i-Bus 遥控接收机（UART4，115200 + DMA，仅接收）。
