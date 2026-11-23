@@ -85,8 +85,24 @@ public:
     /// @brief 获取所绑定的 HAL 句柄，不转移所有权。
     [[nodiscard]] UART_HandleTypeDef& handle() noexcept { return m_uart_handle; }
 
-    /// @brief 查询异步发送是否仍在进行；正常 DMA 发送在 UART TC 回调后才结束。
-    [[nodiscard]] bool is_transmitting() const noexcept { return m_tx_lock.is_locked(); }
+    /// @brief 查询 UART 是否正在发送或正在准备异步发送。
+    /// @note 正常 DMA 发送在 UART TC 回调后才结束。
+    [[nodiscard]] bool is_transmitting() const noexcept {
+        const auto state = HAL_UART_GetState(&m_uart_handle);
+        return state == HAL_UART_STATE_BUSY_TX ||
+               state == HAL_UART_STATE_BUSY_TX_RX ||
+               m_tx_lock.is_locked();
+    }
+
+    /// @brief 查询 HAL 当前是否正在接收。
+    [[nodiscard]] bool is_receiving() const noexcept {
+        return m_uart_handle.RxState == HAL_UART_STATE_BUSY_RX;
+    }
+
+    /// @brief 查询 HAL 当前是否报告 UART 收发错误。
+    [[nodiscard]] bool is_in_error() const noexcept {
+        return HAL_UART_GetError(&m_uart_handle) != HAL_UART_ERROR_NONE;
+    }
 
     /// @brief 获取已完成的异步发送次数，允许 uint32_t 自然回绕。
     [[nodiscard]] std::uint32_t transmit_complete_count() const noexcept {
@@ -214,8 +230,6 @@ public:
 
         // 已运行的环形接收不能重置读取位置
         if (m_uart_handle.RxState != HAL_UART_STATE_READY) return HAL_BUSY;
-        // 清除启动阶段残留的接收错误标志，避免启用错误中断后立即中止接收。
-        __HAL_UART_CLEAR_FLAG(&m_uart_handle, UART_CLEAR_OREF | UART_CLEAR_FEF | UART_CLEAR_NEF);
         m_last_rx_buffer_pos = 0;
 
         auto result = HAL_UARTEx_ReceiveToIdle_DMA(
@@ -224,6 +238,17 @@ public:
             static_cast<std::uint16_t>(m_rx_buffer.size())
         );
         return result;
+    }
+
+    /// @brief 在接收任务中中止循环 DMA，丢弃旧字节并重新启动接收。
+    HAL_StatusTypeDef restart_receive_to_idle_dma() {
+        const auto status = abort_all_receive();
+        if (status != HAL_OK) return status;
+
+        if constexpr (IsRxStreamBufferEnabled::value) {
+            m_rx_stream_buffer.reset();
+        }
+        return start_receive_to_idle_dma();
     }
 
     HAL_StatusTypeDef start_transmit_dma(std::span<const std::uint8_t> msg){
@@ -261,6 +286,7 @@ public:
     >;
     using IsRxStreamBufferEnabled = std::bool_constant<(RxStreamBufferSize > 0)>;
 
+    // 每个端口实例拥有自己的接收流缓冲区。
     alignas(8) RxStreamBuffer m_rx_stream_buffer;
     std::atomic<std::size_t> m_rx_stream_dropped_bytes{0};
 
@@ -414,6 +440,19 @@ public:
     inline static void hal_on_rx_event(UART_HandleTypeDef* huart, HAL_UART_RxEventTypeTypeDef event, std::uint16_t size) {
         auto port = find_uart_port_by_huart(huart);
         if (port == nullptr) return;
+
+        // size = 缓冲区大小 - DMA 计数器
+        // 有可能发生这么一种情况：
+        // DMA 已经写满了，触发了 HT、TC 两个事件，但 CPU 刚处理到 HT 事件
+        // 此时计数器重新装载，DMA 计数器 == 缓冲区大小
+        // 这种条件下，HT 事件会用公式计算，算出 size = 0
+        // 而 TC 事件会直接传 size = 缓冲区大小
+        // （stm32h7xx_hal_uart.c:3750）
+        // 下面就是过滤掉这种情况，转而由后续的 TC 或 IDLE 事件去处理
+        if (event == HAL_UART_RXEVENT_HT && size == 0) {
+            return;
+        }
+
         port->handle_receive_to_idle_chunk(size);
 
         auto callback = port->m_callbacks.on_receive_to_idle_event;
