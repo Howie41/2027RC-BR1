@@ -142,14 +142,14 @@ speed_pid.config().improvement.store(options);
 
 需要在电脑上查看曲线、修改 PID 参数时使用。板上计算 PID 不依赖它，不需要上位机时可以跳过这一节。
 
-下面接续开头的 `speed_pid`，给 Viewer 单独使用 USART3：
+下面接续开头的 `speed_pid`，以 USART3 为例。应用中已有 USART3 对象时，直接绑定该对象。
 
 ```cpp
 #include "pid_viewer.hpp"
 #include "usart.h"
 
-// 函数外创建，且早于 rtos_resource_init()。不要和别的功能共用 USART3。
-DMA_BUFFER_BSS UartPortDma<64, 128, 512> viewer_uart{huart3, {}};
+// 函数外创建，且早于 rtos_resource_init()。
+DMA_BUFFER_BSS UartPortDma<128, 128, 512> viewer_uart{huart3, {}};
 
 // 串口初始化和 RTOS 资源创建完成后，在 Viewer 任务开始时调用一次。
 bool init_pid_viewer() {
@@ -169,12 +169,12 @@ void update_pid_viewer() { // 初始化成功后，在同一任务中约每 1 �
 
 UART 的 TX DMA 使用 NORMAL、RX DMA 使用 CIRCULAR，并接好项目的串口回调。电脑端使用配套 PID Viewer；这里不需要自己拼接上位机消息。
 
-- `static void bind(UartPortDma<...>& port)`（省略串口的类型参数）
-  - 传入已经创建好的 DMA 串口，例如 `PidViewer::bind(viewer_uart);`。
-  - 发送缓冲区至少 52 字节，接收缓冲区和接收流缓冲区都要启用。
+- `static void bind(UartPortDma<128, 128, 512>& port)`
+  - 传入已创建的 DMA 串口。发送、接收和接收流缓冲区分别为 128、128 和 512 字节。
   - 不会替你启动接收，仍需像示例一样检查 `start_receive_to_idle_dma()` 的结果。
-  - Viewer 独占这个串口的接收数据和发送接口，不要再由其他功能读取或发送。
+  - Viewer 独占接收流缓冲区。BR 在同一调试任务中通过同一个 DMA 串口对象发送日志。
 - `static void periodic(uint32_t timestamp_ms)`
+  - 每次最多提交一帧，发送前等待串口空闲，等待期间每次让出任务 1 tick。
   - 在同一个任务里周期调用，建议每 1 毫秒一次，传入当前毫秒时间。
   - 处理电脑发来的指令、发送回复和曲线数据。电脑选好监控通道后，曲线数据每 10 毫秒生成一次。
 - `static bool set_parameter_limits(const ParameterLimits& limits)`

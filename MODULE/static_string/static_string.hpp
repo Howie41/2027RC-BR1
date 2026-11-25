@@ -1,12 +1,10 @@
 #pragma once
 
-#include "main.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <format>
+#include <cstdio>
 #include <string_view>
-#include <utility>
 
 template <std::size_t Capacity>
 class StaticString {
@@ -33,15 +31,20 @@ public:
         m_array[m_length] = '\0';
     }
 
-    template <class... Args>
-    StaticString(std::format_string<Args...> format_str, Args&&... args) {
-        const auto result = std::format_to_n(
+    template <class... Args> requires (sizeof...(Args) > 0)
+    StaticString(const char* format_str, Args... args) {
+        // snprintf 返回缓冲区足够大时本应写入的字符数
+        const int length = std::snprintf(
             m_array.data(),
-            Capacity,
+            m_array.size(),
             format_str,
-            std::forward<Args>(args)...
+            args...
         );
-        m_length = std::min(Capacity, static_cast<std::size_t>(result.size));
+        if (length < 0) {
+            clear();
+            return;
+        }
+        m_length = std::min(Capacity, static_cast<std::size_t>(length));
         m_array[m_length] = '\0';
     }
 

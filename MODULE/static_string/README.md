@@ -8,7 +8,7 @@
 #include "static_string.hpp"
 
 void example() {
-    StaticString<32> text{"motor={} speed={}", 1, 100};
+    StaticString<32> text{"motor=%d speed=%d", 1, 100};
     bool added = text.try_push_back('!'); // true，变成 "motor=1 speed=100!"
 
     const char* message = text.c_str();  // 交给需要字符串的显示或发送接口
@@ -29,10 +29,12 @@ void example() {
 - `StaticString(std::string_view str)`
   - 从已经带长度的文字创建，也会截断超出容量的部分。
   - 例如 `StaticString<32> text{std::string_view{"motor"}};`。
-- `template <class... Args> StaticString(std::format_string<Args...> format_str, Args&&... args)`
-  - 用 `{}` 依次放入后面给的值。
-  - 例如 `StaticString<32>{"motor={} speed={}", 1, 100}` 得到 `motor=1 speed=100`。
-  - 结果太长时只保留前 32 个字符。
+- `template <class... Args> StaticString(const char* format_str, Args... args)`
+  - 有额外参数时调用，使用 `snprintf` 的格式说明符，例如 `%d`、`%s`、`%.2f`。
+  - 例如 `StaticString<32>{"motor=%d speed=%d", 1, 100}` 得到 `motor=1 speed=100`。
+  - 结果太长时截断到容量，格式化失败时生成空字符串，末尾保留 `\0`。
+  - 格式说明符须与参数类型匹配。`StaticString` 字符串参数传 `.c_str()`；`std::string_view` 使用 `%.*s`，依次传入转换为 `int` 的长度和 `.data()`。
+  - 单参数构造按普通文字复制，例如 `StaticString<32>{"100%"}`。
 - `std::size_t size() const`
   - 返回当前字符数，不算末尾的 `\0`。
 - `std::size_t capacity() const`

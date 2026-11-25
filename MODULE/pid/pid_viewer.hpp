@@ -3,6 +3,7 @@
 #include "frame_codec.hpp"
 #include "pid_controller.hpp"
 #include "pid_manager.hpp"
+#include "rtos_task.hpp"
 #include "uart_port.hpp"
 
 #include <algorithm>
@@ -54,6 +55,8 @@ static_assert(PidInfo::size() == 52 && Ack::size() == 21 && Monitor::size() == 4
  * 串口 DMA 的初始化与启动由调用方负责。
  */
 class PidViewer {
+    using Port = UartPortDma<128, 128, 512>;
+
 public:
     /**
      * @brief 上位机设置比例、积分和微分参数时使用的允许范围，包含上下界。
@@ -75,30 +78,14 @@ public:
 
     /**
      * @brief 绑定 DMA 串口，接管 Viewer 收发；不启动或中止串口 DMA。
-     * @tparam TransmitBufferSize DMA 发送缓冲区容量，至少为 52 字节。
-     * @tparam ReceiveBufferSize DMA 接收缓冲区容量，须大于零。
-     * @tparam ReceiveStreamBufferSize 接收流缓冲区容量，须大于零。
      * @param port 待绑定的串口实例，须在绑定期间持续有效。
-     * @note 接收流缓冲区由 Viewer 独占读取，发送接口也应由 Viewer 独占。
+     * @note 接收流缓冲区由 Viewer 独占读取。其他模块可在同一任务中通过该端口发送完整帧。
      *       重新绑定会清空待发帧、半帧和监控通道。
      *       不清空串口接收流缓冲区，也不取消已提交给 DMA 的发送。
      */
-    template <uint16_t TransmitBufferSize,
-              uint16_t ReceiveBufferSize, uint16_t ReceiveStreamBufferSize>
-    static void bind(
-        UartPortDma<TransmitBufferSize, ReceiveBufferSize, ReceiveStreamBufferSize> &port) {
-        static_assert(TransmitBufferSize >= kMaxFrameSize, "PID Viewer TX buffer must hold a complete frame");
-        static_assert(ReceiveBufferSize > 0 && ReceiveStreamBufferSize > 0,
-                      "PID Viewer requires a DMA RX stream buffer");
-        using Port = UartPortDma<TransmitBufferSize, ReceiveBufferSize, ReceiveStreamBufferSize>;
-        auto &viewer = instance();
+    static void bind(Port& port) {
+        auto& viewer = instance();
         viewer.m_uart_port = &port;
-        viewer.m_uart_receive = [](UartPort *uart, std::span<uint8_t> bytes) {
-            return static_cast<Port *>(uart)->m_rx_stream_buffer.receive_to(bytes, 0);
-        };
-        viewer.m_uart_transmit = [](UartPort *uart, std::span<const uint8_t> bytes) {
-            return static_cast<Port *>(uart)->start_transmit_dma(bytes);
-        };
         viewer.reset_receive();
         viewer.m_transmit_head = 0;
         viewer.m_transmit_count = 0;
@@ -108,20 +95,22 @@ public:
     }
 
     /**
-     * @brief 在任务中周期调用，非阻塞处理接收、MONITOR 调度和待发帧。
+     * @brief 在任务中周期调用，处理接收、MONITOR 调度并发送至多一帧。
      * @param timestamp_ms 单调递增的毫秒时间戳，允许 uint32_t 回绕。
      * @note 建议每 1 ms 调用；每次最多读取 256 字节，MONITOR 周期为 10 ms。
-     *       发送队列满时暂停读取串口；DMA 发送忙时保留待发帧，其他发送错误丢弃该帧。
+     *       发送队列满时暂停读取串口；发送前等待串口空闲，每次让出任务 1 tick。
+     *       DMA 提交返回忙时保留待发帧，其他发送错误丢弃该帧。
      *       未调用 bind() 时直接返回。
      */
     static void periodic(uint32_t timestamp_ms) {
         auto &viewer = instance();
         if (viewer.m_uart_port == nullptr) return;
-        viewer.flush_transmit();
         // 一次读取一个字节，队列满时停止消费，避免丢失命令的应答。
         for (std::size_t i = 0; i < 256 && viewer.m_transmit_count < kTransmitQueueSize; ++i) {
             uint8_t byte;
-            if (viewer.m_uart_receive(viewer.m_uart_port, std::span{&byte, 1U}) == 0) break;
+            const auto received = viewer.m_uart_port->m_rx_stream_buffer.receive_to(
+                std::span{&byte, 1U}, 0);
+            if (received == 0) break;
             viewer.process_byte(byte);
         }
         if (viewer.m_transmit_count < kTransmitQueueSize) viewer.update_monitor(timestamp_ms);
@@ -144,6 +133,8 @@ private:
     static constexpr uint8_t kUnusedPidId = PidManager::INVALID_PID_ID;
     static constexpr std::size_t kChannelCount = 4U;
     static constexpr std::size_t kMaxFrameSize = pid_viewer_detail::PidInfo::size();
+    static_assert(kMaxFrameSize <= decltype(Port::m_tx_buffer){}.size(),
+                  "PID 帧必须能放入 DMA 发送缓冲区");
     static constexpr uint32_t kMonitorPeriodMs = 10U;
     static constexpr std::size_t kTransmitQueueSize = 8U;
 
@@ -192,8 +183,9 @@ private:
 
     void flush_transmit() {
         if (m_transmit_count == 0) return;
+        while (m_uart_port->is_transmitting()) { rtos::delay(1); }
         const auto &pending = m_transmit_queue[m_transmit_head];
-        const auto result = m_uart_transmit(m_uart_port, {pending.bytes.data(), pending.length});
+        const auto result = m_uart_port->start_transmit_dma({pending.bytes.data(), pending.length});
         if (result == HAL_BUSY) return;
         // DMA 接口已复制到串口自有缓冲区；错误帧丢弃，避免堵住后续发送。
         m_transmit_head = (m_transmit_head + 1) % kTransmitQueueSize;
@@ -418,9 +410,7 @@ private:
     std::array<uint8_t, kChannelCount> m_channels{
         kUnusedPidId, kUnusedPidId, kUnusedPidId, kUnusedPidId};
     ParameterLimits m_parameter_limits{};
-    UartPort *m_uart_port{nullptr};
-    std::size_t (*m_uart_receive)(UartPort *, std::span<uint8_t>){nullptr};
-    HAL_StatusTypeDef (*m_uart_transmit)(UartPort *, std::span<const uint8_t>){nullptr};
+    Port* m_uart_port{nullptr};
     std::array<PendingFrame, kTransmitQueueSize> m_transmit_queue{};
     std::size_t m_transmit_head{0};
     std::size_t m_transmit_count{0};
