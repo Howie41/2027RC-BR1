@@ -1,6 +1,6 @@
 #pragma once
 
-#include "c620.hpp"
+#include "c6x0.hpp"
 #include "hwt901b.hpp"
 #include "pid_controller.hpp"
 #include "pub_sub.hpp"
@@ -31,7 +31,7 @@ public:
     /// @brief remote 用于读取摇杆/禁用遥控；imu 提供 yaw_imu/omega_imu；velocity_command_msg 接收上位机指令；
     ///        fr/fl/rl/rr 依次为前右/前左/后左/后右电机。
     Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
-            C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr);
+            C6x0Motor& fr, C6x0Motor& fl, C6x0Motor& rl, C6x0Motor& rr);
 
     /// @brief 以当前 imu 航向为世界系基准（yaw_bias = yaw_imu）。
     void resetYawBias() noexcept;
@@ -68,7 +68,7 @@ private:
     float tickDelta();
 
     // 底盘电机及其内环转速 PID。
-    C620Motor* motors_[4]{};
+    C6x0Motor* motors_[4]{};
     PidController fr_pid_{
         "chassis_fr_speed",
         {

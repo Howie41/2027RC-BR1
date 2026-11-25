@@ -6,7 +6,7 @@
 
 namespace robot {
 
-TestSubsystem::TestSubsystem(C620Motor& motor)
+TestSubsystem::TestSubsystem(C6x0Motor& motor)
     : motor_(motor),
       speed_pid_("test_motor_speed", {
           .kp = 400.0f,

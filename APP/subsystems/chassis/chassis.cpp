@@ -25,7 +25,7 @@ constexpr float kAngularAccel = 3.14159265f;  // 右摇杆满杆角加速度 (ra
 }  // namespace
 
 Chassis::Chassis(imu::Data& imu, rtos::Subscriber<VelocityCommand, 4>& velocity_command_msg,
-                 C620Motor& fr, C620Motor& fl, C620Motor& rl, C620Motor& rr)
+                 C6x0Motor& fr, C6x0Motor& fl, C6x0Motor& rl, C6x0Motor& rr)
     : motors_{&fr, &fl, &rl, &rr},
       pids_{&fr_pid_, &fl_pid_, &rl_pid_, &rr_pid_},
       imu_{imu},

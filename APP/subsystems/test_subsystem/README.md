@@ -1,6 +1,6 @@
 # TestSubsystem
 
-TestSubsystem 是 C620 电机速度闭环的接入示例，当前未创建实例或周期任务，也未注册到整车。实例化时通过构造函数传入电机，以 PID test_motor_speed 执行速度闭环，支持 debug_task 调参。继承 Subsystem 的五状态生命周期，整机通过基类请求和状态查询协调，不直接操作电机。
+TestSubsystem 是 C6x0 电机速度闭环的接入示例，当前未创建实例或周期任务，也未注册到整车。实例化时通过构造函数传入电机，以 PID test_motor_speed 执行速度闭环，支持 debug_task 调参。继承 Subsystem 的五状态生命周期，整机通过基类请求和状态查询协调，不直接操作电机。
 
 | 状态 | 电机行为 |
 | --- | --- |

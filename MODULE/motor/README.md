@@ -1,17 +1,17 @@
 # motor
 
-假设我们要控制 CAN1 上的 1 号 C620 电调：每次给它一个电流目标，同时读取速度和位置。
+假设我们要控制 CAN1 上的 1 号 C620 电调：每次给它一个电流目标，同时读取速度和位置。C610 和 C620 都用 `C6x0Motor`，构造时用 `C6x0Model` 区分型号。
 
-电流单位为 mA。例如 `1000` 表示 1 A，负数表示反方向。这里直接控制电流，不会自动保持某个转速；需要稳速时，可以让 [PID](../pid/README.md) 计算电流目标。
+电流单位为 mA。例如 `1000` 表示 1 A，负数表示反方向。这里直接控制电流，不会自动保持某个转速；需要稳速时，可以让 [PID](../pid/README.md) 计算电流目标，或使用 `C6x0MotorWithPid`。
 
 ```cpp
-#include "c620.hpp"
+#include "c6x0.hpp"
 #include "fdcan.h"
 
 // 放在函数外，整个程序运行期间保留。
 CanBus motor_bus{hfdcan1};
-C620 c620{motor_bus};
-C620Motor motor1{c620, 1}; // 1 是电调上设置的编号
+C6x0Bus c6x0{motor_bus};
+C6x0Motor motor1{c6x0, C6x0Model::C620, 1}; // 1 是电调上设置的编号
 
 // MX_FDCAN1_Init() 完成后、控制任务开始工作前调用一次。
 bool init_motor() {
@@ -33,48 +33,65 @@ bool update_motor(float current_ma) {
 
 先调用并检查 `init_motor()`，再在控制任务里周期调用 `update_motor(1000.0f)`。周期由应用决定，例如每 1 毫秒调用一次。总线接收配置见 [CanBus](../../BSP/can_bus/README.md)。
 
-如果项目里已经创建了 CAN1 的总线和 C620，直接使用已有对象，不要给同一个 CAN 外设再创建一套。以上是接入写法，不是给现有 `robot` 配置重复添加设备。
+如果项目里已经创建了 CAN1 的总线和 `C6x0Bus`，直接使用已有对象，不要给同一个 CAN 外设再创建一套。以上是接入写法，不是给现有 `robot` 配置重复添加设备。
 
-### C620
+### C6x0Bus
 
-管理同一条 CAN 总线上的 C620 电调，控制 1～8 号电机。
+管理同一条 CAN 上的 C610 和 C620，控制 1～8 号电机。每周期发送一帧 `0x200`（1～4 号）和一帧 `0x1FF`（5～8 号）。
 
-- `explicit C620(CanBus& bus)`
-  - 传入电调所在的 CAN 总线，例如 `C620 c620{motor_bus};`。
-  - 同一条总线只创建一个 C620，可以给它配多个 `C620Motor`。
+- `explicit C6x0Bus(CanBus& bus)`
+  - 传入电调所在的 CAN 总线，例如 `C6x0Bus c6x0{motor_bus};`。
+  - 同一条总线只创建一个 `C6x0Bus`。
   - 构造时自动登记到总线，不用手动注册，也不在这里启动硬件。
 
-平时不用调用 C620 的组帧和接收方法。每个控制周期先更新所有电机目标，再调用一次 `motor_bus.periodic()` 即可。
+平时不用调用它的组帧和接收方法。每个控制周期先更新所有电机目标，再调用一次 `motor_bus.periodic()` 即可。
 
-### C620Motor
+### C6x0Motor
 
-代表一个 C620 电机。用它设置目标、允许输出、读取反馈。
+代表一台 C610 或 C620。用它设置目标、允许输出、读取反馈。
 
-- `C620Motor(C620& controller, uint8_t motor_id)`
-  - 第一项填所属的 C620，第二项填电调上设置的 ID，范围 1～8，同一个 C620 下不能重复。
+- `C6x0Motor(C6x0Bus& bus, C6x0Model model, uint8_t motor_id)`
+  - `model` 填 `C6x0Model::C610` 或 `C6x0Model::C620`。
+  - `motor_id` 是电调拨码，范围 1～8，同一个 `C6x0Bus` 下不能重复。
   - 创建后默认不允许输出，需要调用 `enable()`。
-- `void init(float reduction_ratio = 19.0f, float max_output = 20000.0f)`
+  - C620 默认减速比 19、电流上限 20000 mA；C610 默认减速比 36、电流上限 10000 mA。
+- `void init(float reduction_ratio, float max_output_ma)`
   - 第一项是减速比，必须大于 0。
-  - 第二项是电流上限，单位 mA，范围 0～20000；实际目标会限制在正负这个值以内。
+  - 第二项是电流上限，单位 mA，不能超过该型号的协议满量程。
   - 更新配置，不清空已经收到的位置和速度。
-- `void enable() noexcept`
-  - 允许使用设置的电流目标。实际发送还要继续调用总线的 `periodic()`。
-- `void disable() noexcept`
-  - 禁止输出，并把目标电流清成 0。
-  - 之后仍要继续调用 `periodic()`，把零电流发给电调。
+- `void enable() noexcept` / `void disable() noexcept`
+  - `disable()` 把目标电流清成 0。之后仍要继续调用 `periodic()`，把零电流发给电调。
 - `bool set_output_command(const OutputCommand& command) noexcept`
   - 保存目标电流，例如 `motor1.set_output_command({.current_ma = 1000.0f});`。
-  - 超过配置上限时自动限制，保存成功返回 `true`。
   - 传入 NaN、无穷大时返回 `false`，保留原来的目标。这里只保存目标，不会立即发送。
-- `const OutputCommand& get_output_command() const noexcept`
-  - 查看当前保存的命令，例如 `motor1.get_output_command().current_ma`。
-- `uint8_t id() const noexcept`
-  - 返回电调 ID，也就是创建时填的 1～8，不是 CAN 报文 ID。
+- `uint8_t get_error_code() const noexcept`
+  - C610 返回第 8 字节。0 表示无异常。C620 保持 0。
 
-### C620Motor::OutputCommand
+电流按型号换算：
+
+- C620：`current_ma * 16384 / 20000`。1000 mA 的协议值是 819。
+- C610：`current_ma * 10000 / 10000`。1000 mA 的协议值是 1000。
+
+C620 把第 7 字节当作温度。C610 的温度和力矩为 NaN。两种型号都以首次反馈为累计位置零点，C620 从第二帧开始更新转子侧单圈位置。
+
+### C6x0Motor::OutputCommand
 
 - `float current_ma{0}`
   - 目标电流，单位 mA。正负方向由电机接线和安装方向决定。
+
+### C6x0MotorWithPid
+
+通过 `#include "c6x0_motor_with_pid.hpp"` 引入。
+
+`C6x0Motor` 的子类，自带速度环。模板参数为 `true` 时再套位置环，目标单位是输出端角度。
+
+```cpp
+inline C6x0Bus can3_c6x0{can3_bus};
+inline C6x0MotorWithPid<true> m3508{can3_c6x0, C6x0Model::C620, "m3508", 1};
+inline C6x0MotorWithPid<false> m2006{can3_c6x0, C6x0Model::C610, "m2006", 2};
+```
+
+`calculate_and_output(target)` 在电机已使能且在线时计算电流。单环的 `target` 是 rad/s，双环的 `target` 是度。`disable()` 会同时清 PID 积分。
 
 ### Im6014Motor
 
@@ -220,14 +237,14 @@ UART 要配置硬件方向控制，TX DMA 用 NORMAL、RX DMA 用 CIRCULAR，收
 - `float get_current_speed() const`
   - 输出端速度，单位 rad/s。
 - `float get_current_torque() const`
-  - 输出端力矩反馈。IM6014 单位为 Nm；C620 是当前驱动换算出的值，不能直接当作已标定的实际 Nm。
+  - 输出端力矩反馈。IM6014 单位为 Nm；C620 型号的 `C6x0Motor` 是当前驱动换算出的值，不能直接当作已标定的实际 Nm。C610 型号返回 NaN。
 - `float get_current_temperature() const`
-  - 温度，单位摄氏度。IM6014 这里是驱动器温度。
+  - 温度，单位摄氏度。IM6014 这里是驱动器温度，C610 返回 NaN。
 - `float get_raw_current_single_pos() const` / `float get_raw_current_sum_pos() const`
   - 获取转子侧单圈位置和累计位置，单位度。
 - `float get_raw_current_speed() const`
   - 获取转子侧速度，单位 rad/s。
 - `float get_raw_current_torque() const`
-  - IM6014 返回转子侧力矩，单位 Nm；C620 返回协议里的原始电流反馈值。
+  - IM6014 返回转子侧力矩，单位 Nm；`C6x0Motor` 返回协议里的原始电流反馈值。
 
-所有总线、协议设备和电机对象都要一直保留，不要临时创建后销毁。C620 的累计位置以首次反馈为起点；两次反馈间转子运动超过半圈时，累计圈数可能不准。反馈更新和控制访问不要在不同任务或中断里随意混用，需要由应用安排好同步。
+所有总线、协议设备和电机对象都要一直保留，不要临时创建后销毁。C610 和 C620 的累计位置以首次反馈为起点；两次反馈间转子运动超过半圈时，累计圈数可能不准。反馈更新和控制访问不要在不同任务或中断里随意混用，需要由应用安排好同步。

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "c620.hpp"
+#include "c6x0.hpp"
 #include "pid_controller.hpp"
 #include "subsystem.hpp"
 
@@ -11,7 +11,7 @@ namespace robot {
 class TestSubsystem final : public Subsystem {
 public:
     // EB: 机构类的构造函数
-    explicit TestSubsystem(C620Motor& motor);
+    explicit TestSubsystem(C6x0Motor& motor);
 
     // EB: 声明业务函数，在test_running.cpp里调用，返回值表示是否接受请求，非阻塞
     // 一般通过写入目标值，由onRun()实现具体的执行逻辑来完成业务
@@ -27,7 +27,7 @@ private:
     // 以下提到的请求由总状态机和Periodic()自动发起。不需要研究具体发起的机制。
     // Periodic()见robot/tasks/subsystems.cpp
 
-    // EB: 这个是检查外设是否在线的函数，这个例子里是检查c620电机是否在线
+    // EB: 这个是检查外设是否在线的函数，这个例子里是检查 C6x0 电机是否在线
     [[nodiscard]] bool isOnline(FaultInfo& online_info) const override;
 
     // EB: 准备和禁用请求会调用这个函数，待机请求不调用
@@ -73,7 +73,7 @@ private:
     // EB: end
 
     // EB: 这里是机构类的成员变量
-    C620Motor& motor_;
+    C6x0Motor& motor_;
     PidController speed_pid_;
     float target_speed_{0};
     float measured_speed_{0};

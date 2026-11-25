@@ -84,7 +84,7 @@ uint8_t read_led_duty() { // 在任务中查看最近收到的值
 - 项目已经通过 `can_bus.cpp` 接好 HAL 回调，不要重复定义。
 - 如果项目已经创建 CAN1 的总线对象，复用它，不要给同一个外设再创建一份。
 
-已有电机驱动时，不用自己写上面的 `LedDevice`。直接创建对应设备即可，例如 C620 的用法见 [motor](../../MODULE/motor/README.md)。
+已有电机驱动时，不用自己写上面的 `LedDevice`。直接创建对应设备即可，例如 `C6x0Bus` 的用法见 [motor](../../MODULE/motor/README.md)。
 
 ### CanBus
 
@@ -145,7 +145,7 @@ uint8_t read_led_duty() { // 在任务中查看最近收到的值
   - 修改接收 ID 和类型，必须在总线 `init()` 之前完成，并避免与其他设备重复。
 - `bool match_rx(const FDCAN_RxHeaderTypeDef& header) const`
   - 默认只接收构造时填写的那一个 ID 和类型。
-  - 只有像 C620 那样一个设备要接收多个 ID 时，才需要自己重写这个方法。
+  - 只有像 `C6x0Bus` 那样一个设备要接收多个 ID 时，才需要自己重写这个方法。
 
 ### 使用时注意
 

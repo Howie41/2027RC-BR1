@@ -13,7 +13,7 @@
 #include "rs485_bus.hpp"
 #include "rtos_task.hpp"
 #include "uart_port.hpp"
-#include "c620.hpp"
+#include "c6x0.hpp"
 #include "chassis.hpp"
 #include "remote.hpp"
 #include "hwt901b.hpp"
@@ -47,11 +47,11 @@ RAM_D1_BSS inline rtos::Task<
 
 // EB: 这里声明需要用到的外设和子系统（机构）
 // 底盘（全向轮），CAN1 电机 1~4 = 前右/前左/后左/后右。
-inline C620 can1_c620{can1_bus};
-inline C620Motor chassis_fr{can1_c620, 1};
-inline C620Motor chassis_fl{can1_c620, 2};
-inline C620Motor chassis_rl{can1_c620, 3};
-inline C620Motor chassis_rr{can1_c620, 4};
+inline C6x0Bus can1_c6x0{can1_bus};
+inline C6x0Motor chassis_fr{can1_c6x0, C6x0Model::C620, 1};
+inline C6x0Motor chassis_fl{can1_c6x0, C6x0Model::C620, 2};
+inline C6x0Motor chassis_rl{can1_c6x0, C6x0Model::C620, 3};
+inline C6x0Motor chassis_rr{can1_c6x0, C6x0Model::C620, 4};
 inline remote::Remote remote{};
 inline imu::Data imu_data{};
 inline rtos::Subscriber<VelocityCommand, 4> velocity_command_msg{"velocity_command_msg"};
